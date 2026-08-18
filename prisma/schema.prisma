@@ -1,0 +1,36 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Business {
+  id              String   @id @default(cuid())
+  name            String
+  industry        String
+  description     String
+  targetAudience  String
+  location        String
+  avgTicket       Float?
+  objective       String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  products Product[]
+}
+
+model Product {
+  id         String   @id @default(cuid())
+  name       String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId String
+  createdAt  DateTime @default(now())
+}

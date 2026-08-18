@@ -1,0 +1,19 @@
+export const INDUSTRIES = [
+  "Odontología / Salud dental",
+  "Salud / Clínica médica",
+  "Estética / Belleza",
+  "Restaurante / Gastronomía",
+  "Gimnasio / Fitness",
+  "Inmobiliaria",
+  "Retail / Tienda física",
+  "E-commerce",
+  "Servicios profesionales",
+  "Otro",
+] as const;
+
+export const OBJECTIVES = [
+  { value: "more_sales", label: "Vender más" },
+  { value: "more_leads", label: "Conseguir más leads / consultas" },
+  { value: "brand_awareness", label: "Aumentar reconocimiento de marca" },
+  { value: "customer_retention", label: "Fidelizar clientes actuales" },
+] as const;
