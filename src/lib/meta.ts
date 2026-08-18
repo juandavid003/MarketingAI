@@ -85,3 +85,29 @@ export async function fetchPages(accessToken: string): Promise<MetaPage[]> {
   });
   return json.data;
 }
+
+export type PagePost = {
+  id: string;
+  message?: string;
+  created_time: string;
+  permalink_url?: string;
+  full_picture?: string;
+  shares?: { count: number };
+};
+
+// Like/comment counts (likes.summary, comments.summary) require Meta's
+// "Page Public Content Access" Advanced Access feature, which needs App
+// Review + Business Verification even for the page's own admin. Until that's
+// done, only post content + share count are readable.
+export async function fetchPagePosts(
+  pageId: string,
+  pageAccessToken: string,
+  limit = 10
+): Promise<PagePost[]> {
+  const json = await graphGet<{ data: PagePost[] }>(`/${pageId}/posts`, {
+    access_token: pageAccessToken,
+    fields: "message,created_time,permalink_url,full_picture,shares",
+    limit: String(limit),
+  });
+  return json.data;
+}

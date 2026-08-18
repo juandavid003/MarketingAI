@@ -3,6 +3,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { OBJECTIVES } from "@/lib/constants";
 import { generateInsights, type Insight } from "@/lib/insights";
+import { getPageActivity, type PageActivity } from "@/lib/pageActivity";
 import { disconnectMeta } from "./actions";
 
 export default async function BusinessProfilePage({
@@ -29,6 +30,9 @@ export default async function BusinessProfilePage({
     business.objective;
 
   const insights = generateInsights(business);
+  const pageActivity = business.socialConnection
+    ? await getPageActivity(business.socialConnection.pages)
+    : [];
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-16">
@@ -49,6 +53,8 @@ export default async function BusinessProfilePage({
       )}
 
       <ConnectionCard business={business} />
+
+      {pageActivity.length > 0 && <PageActivitySection activity={pageActivity} />}
 
       <section className="mt-10">
         <div className="flex items-center justify-between">
@@ -185,6 +191,70 @@ function ConnectionCard({
         </ul>
       )}
     </div>
+  );
+}
+
+function PageActivitySection({ activity }: { activity: PageActivity[] }) {
+  return (
+    <section className="mt-10">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">📊 Actividad real de tus páginas</h2>
+        <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-800 dark:bg-green-900/40 dark:text-green-300">
+          Datos en vivo
+        </span>
+      </div>
+      <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+        Los conteos de likes y comentarios requieren que tu app complete la
+        revisión de Meta (App Review); por ahora mostramos el contenido
+        publicado y las veces compartido.
+      </p>
+
+      <div className="mt-4 space-y-4">
+        {activity.map((page) => {
+          const latestPost = page.posts[0];
+          return (
+            <div key={page.pageId} className="rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
+              <p className="text-sm font-medium">{page.pageName}</p>
+
+              {page.error && (
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400">{page.error}</p>
+              )}
+
+              {!page.error && !latestPost && (
+                <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+                  Esta página aún no tiene publicaciones.
+                </p>
+              )}
+
+              {!page.error && latestPost && (
+                <div className="mt-2">
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                    Última publicación · {new Date(latestPost.createdTime).toLocaleDateString()}
+                  </p>
+                  {latestPost.message && (
+                    <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+                      &ldquo;{latestPost.message.slice(0, 160)}
+                      {latestPost.message.length > 160 ? "…" : ""}&rdquo;
+                    </p>
+                  )}
+                  <p className="mt-1 text-sm">🔁 {latestPost.shares} compartidos</p>
+                  {latestPost.permalinkUrl && (
+                    <a
+                      href={latestPost.permalinkUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1 inline-block text-sm underline text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
+                    >
+                      Ver publicación
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
