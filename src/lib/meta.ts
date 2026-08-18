@@ -1,0 +1,86 @@
+const GRAPH_VERSION = process.env.META_GRAPH_VERSION ?? "v21.0";
+
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+  return value;
+}
+
+export const META_SCOPES = [
+  "pages_show_list",
+  "pages_read_engagement",
+  "instagram_basic",
+  "instagram_manage_insights",
+  "business_management",
+].join(",");
+
+export function buildMetaAuthUrl(state: string): string {
+  const url = new URL(`https://www.facebook.com/${GRAPH_VERSION}/dialog/oauth`);
+  url.searchParams.set("client_id", requireEnv("META_APP_ID"));
+  url.searchParams.set("redirect_uri", requireEnv("META_REDIRECT_URI"));
+  url.searchParams.set("state", state);
+  url.searchParams.set("scope", META_SCOPES);
+  url.searchParams.set("response_type", "code");
+  return url.toString();
+}
+
+type TokenResponse = {
+  access_token: string;
+  token_type: string;
+  expires_in?: number;
+};
+
+async function graphGet<T>(path: string, params: Record<string, string>): Promise<T> {
+  const url = new URL(`https://graph.facebook.com/${GRAPH_VERSION}${path}`);
+  for (const [key, value] of Object.entries(params)) {
+    url.searchParams.set(key, value);
+  }
+  const res = await fetch(url.toString());
+  const json = await res.json();
+  if (!res.ok) {
+    const message = json?.error?.message ?? JSON.stringify(json);
+    throw new Error(`Meta Graph API error (${path}): ${message}`);
+  }
+  return json as T;
+}
+
+export async function exchangeCodeForToken(code: string): Promise<TokenResponse> {
+  return graphGet<TokenResponse>("/oauth/access_token", {
+    client_id: requireEnv("META_APP_ID"),
+    client_secret: requireEnv("META_APP_SECRET"),
+    redirect_uri: requireEnv("META_REDIRECT_URI"),
+    code,
+  });
+}
+
+export async function exchangeForLongLivedToken(
+  shortLivedToken: string
+): Promise<TokenResponse> {
+  return graphGet<TokenResponse>("/oauth/access_token", {
+    grant_type: "fb_exchange_token",
+    client_id: requireEnv("META_APP_ID"),
+    client_secret: requireEnv("META_APP_SECRET"),
+    fb_exchange_token: shortLivedToken,
+  });
+}
+
+export async function fetchMe(accessToken: string): Promise<{ id: string; name: string }> {
+  return graphGet("/me", { access_token: accessToken, fields: "id,name" });
+}
+
+export type MetaPage = {
+  id: string;
+  name: string;
+  access_token: string;
+  instagram_business_account?: { id: string; username?: string };
+};
+
+export async function fetchPages(accessToken: string): Promise<MetaPage[]> {
+  const json = await graphGet<{ data: MetaPage[] }>("/me/accounts", {
+    access_token: accessToken,
+    fields: "id,name,access_token,instagram_business_account{id,username}",
+  });
+  return json.data;
+}

@@ -24,7 +24,8 @@ model Business {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  products Product[]
+  products         Product[]
+  socialConnection SocialConnection?
 }
 
 model Product {
@@ -33,4 +34,33 @@ model Product {
   business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
   businessId String
   createdAt  DateTime @default(now())
+}
+
+model SocialConnection {
+  id             String    @id @default(cuid())
+  business       Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId     String    @unique
+  provider       String    @default("meta")
+  accessToken    String
+  tokenExpiresAt DateTime?
+  metaUserId     String
+  metaUserName   String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  pages SocialPage[]
+}
+
+model SocialPage {
+  id                  String           @id @default(cuid())
+  connection          SocialConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  connectionId        String
+  facebookPageId      String
+  name                String
+  pageAccessToken     String
+  instagramAccountId  String?
+  instagramUsername   String?
+  createdAt           DateTime         @default(now())
+
+  @@unique([connectionId, facebookPageId])
 }

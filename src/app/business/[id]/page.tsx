@@ -3,17 +3,21 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { OBJECTIVES } from "@/lib/constants";
 import { generateInsights, type Insight } from "@/lib/insights";
+import { disconnectMeta } from "./actions";
 
 export default async function BusinessProfilePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ connected?: string; meta_error?: string }>;
 }) {
   const { id } = await params;
+  const { connected, meta_error: metaError } = await searchParams;
 
   const business = await prisma.business.findUnique({
     where: { id },
-    include: { products: true },
+    include: { products: true, socialConnection: { include: { pages: true } } },
   });
 
   if (!business) {
@@ -32,6 +36,19 @@ export default async function BusinessProfilePage({
         {business.industry} · {business.location}
       </p>
       <h1 className="mt-1 text-2xl font-semibold">{business.name}</h1>
+
+      {connected === "1" && (
+        <p className="mt-4 rounded-md bg-green-50 px-4 py-3 text-sm text-green-700 dark:bg-green-950 dark:text-green-300">
+          Conectaste tu cuenta de Meta correctamente.
+        </p>
+      )}
+      {metaError && (
+        <p className="mt-4 rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+          No se pudo conectar con Meta: {metaError}
+        </p>
+      )}
+
+      <ConnectionCard business={business} />
 
       <section className="mt-10">
         <div className="flex items-center justify-between">
@@ -93,6 +110,81 @@ export default async function BusinessProfilePage({
         + Agregar otro negocio
       </Link>
     </main>
+  );
+}
+
+function ConnectionCard({
+  business,
+}: {
+  business: {
+    id: string;
+    socialConnection: {
+      metaUserName: string;
+      pages: {
+        id: string;
+        name: string;
+        instagramUsername: string | null;
+      }[];
+    } | null;
+  };
+}) {
+  if (!business.socialConnection) {
+    return (
+      <div className="mt-6 flex items-center justify-between gap-4 rounded-lg border border-neutral-200 p-5 dark:border-neutral-800">
+        <div>
+          <p className="font-medium">Conecta Facebook e Instagram</p>
+          <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+            Necesario para que la IA empiece a analizar tus datos reales.
+          </p>
+        </div>
+        <a
+          href={`/api/auth/meta/start?businessId=${business.id}`}
+          className="shrink-0 rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200"
+        >
+          Conectar
+        </a>
+      </div>
+    );
+  }
+
+  const { pages, metaUserName } = business.socialConnection;
+
+  return (
+    <div className="mt-6 rounded-lg border border-neutral-200 p-5 dark:border-neutral-800">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <p className="font-medium">✅ Conectado como {metaUserName}</p>
+          <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+            {pages.length === 0
+              ? "No encontramos páginas de Facebook administradas por esta cuenta."
+              : `${pages.length} página(s) conectada(s).`}
+          </p>
+        </div>
+        <form action={disconnectMeta.bind(null, business.id)}>
+          <button
+            type="submit"
+            className="shrink-0 rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-900"
+          >
+            Desconectar
+          </button>
+        </form>
+      </div>
+      {pages.length > 0 && (
+        <ul className="mt-4 space-y-1">
+          {pages.map((page) => (
+            <li key={page.id} className="text-sm">
+              {page.name}
+              {page.instagramUsername && (
+                <span className="text-neutral-500 dark:text-neutral-400">
+                  {" "}
+                  · @{page.instagramUsername}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
