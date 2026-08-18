@@ -8,11 +8,12 @@ function requireEnv(name: string): string {
   return value;
 }
 
+// Instagram scopes (instagram_basic, instagram_manage_insights) are added back
+// once the Instagram product is enabled on the Meta app and the account is
+// registered as an Instagram Tester in dev mode.
 export const META_SCOPES = [
   "pages_show_list",
   "pages_read_engagement",
-  "instagram_basic",
-  "instagram_manage_insights",
   "business_management",
 ].join(",");
 
