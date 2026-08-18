@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { OBJECTIVES } from "@/lib/constants";
 import { generateInsights, type Insight } from "@/lib/insights";
 import { getPageActivity, type PageActivity } from "@/lib/pageActivity";
+import { generateRealInsights } from "@/lib/realInsights";
 import { disconnectMeta } from "./actions";
 
 export default async function BusinessProfilePage({
@@ -29,10 +30,12 @@ export default async function BusinessProfilePage({
     OBJECTIVES.find((o) => o.value === business.objective)?.label ??
     business.objective;
 
-  const insights = generateInsights(business);
   const pageActivity = business.socialConnection
     ? await getPageActivity(business.socialConnection.pages)
     : [];
+  const realInsights = generateRealInsights(pageActivity, business.products);
+  const usingRealInsights = realInsights.length > 0;
+  const insights = usingRealInsights ? realInsights : generateInsights(business);
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-16">
@@ -59,19 +62,33 @@ export default async function BusinessProfilePage({
       <section className="mt-10">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">🧠 Tu negocio esta semana</h2>
-          <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
-            Vista previa
-          </span>
+          {usingRealInsights ? (
+            <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-800 dark:bg-green-900/40 dark:text-green-300">
+              Datos en vivo
+            </span>
+          ) : (
+            <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+              Vista previa
+            </span>
+          )}
         </div>
         <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-          Estos son ejemplos ilustrativos generados a partir de tu perfil.
-          Conecta Instagram/Facebook para que la IA analice datos reales cada
-          semana.
+          {usingRealInsights
+            ? "Generado a partir de la actividad real de tus páginas conectadas."
+            : "Estos son ejemplos ilustrativos generados a partir de tu perfil. Conecta Facebook/Instagram para que la IA analice datos reales cada semana."}
         </p>
 
         <div className="mt-6 space-y-4">
           {insights.map((insight) => (
-            <InsightCard key={insight.title + insight.description} insight={insight} />
+            <InsightCard
+              key={insight.title + insight.description}
+              insight={insight}
+              actionDisabledReason={
+                usingRealInsights
+                  ? "La creación de campañas llega en una próxima versión"
+                  : "Disponible cuando conectes tus redes"
+              }
+            />
           ))}
         </div>
       </section>
@@ -258,7 +275,13 @@ function PageActivitySection({ activity }: { activity: PageActivity[] }) {
   );
 }
 
-function InsightCard({ insight }: { insight: Insight }) {
+function InsightCard({
+  insight,
+  actionDisabledReason,
+}: {
+  insight: Insight;
+  actionDisabledReason: string;
+}) {
   return (
     <div className="rounded-lg border border-neutral-200 p-5 dark:border-neutral-800">
       <div className="flex items-start justify-between gap-4">
@@ -284,7 +307,7 @@ function InsightCard({ insight }: { insight: Insight }) {
         <button
           type="button"
           disabled
-          title="Disponible cuando conectes tus redes"
+          title={actionDisabledReason}
           className="mt-3 rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-400 cursor-not-allowed dark:border-neutral-700 dark:text-neutral-600"
         >
           {insight.actionLabel}
