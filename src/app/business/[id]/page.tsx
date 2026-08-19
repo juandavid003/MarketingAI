@@ -293,9 +293,10 @@ function PageActivitySection({ activity }: { activity: PageActivity[] }) {
         </span>
       </div>
       <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-        Los conteos de likes y comentarios requieren que tu app complete la
+        Los likes y comentarios de Facebook requieren que tu app complete la
         revisión de Meta (App Review); por ahora mostramos el contenido
-        publicado y las veces compartido.
+        publicado y las veces compartido. Instagram sí incluye likes y
+        comentarios reales.
       </p>
 
       <div className="mt-4 space-y-4">
@@ -336,6 +337,47 @@ function PageActivitySection({ activity }: { activity: PageActivity[] }) {
                     >
                       Ver publicación
                     </a>
+                  )}
+                </div>
+              )}
+
+              {page.instagram && (
+                <div className="mt-3 border-t border-neutral-200 pt-3 dark:border-neutral-800">
+                  <p className="text-sm font-medium">📷 Instagram @{page.instagram.username}</p>
+                  {page.instagram.error && (
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{page.instagram.error}</p>
+                  )}
+                  {!page.instagram.error && (
+                    <>
+                      <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                        {page.instagram.followersCount != null && `${page.instagram.followersCount} seguidores`}
+                        {page.instagram.followersCount != null && page.instagram.mediaCount != null && " · "}
+                        {page.instagram.mediaCount != null && `${page.instagram.mediaCount} publicaciones`}
+                      </p>
+                      {page.instagram.posts[0] && (
+                        <div className="mt-2">
+                          {page.instagram.posts[0].caption && (
+                            <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                              &ldquo;{page.instagram.posts[0].caption.slice(0, 160)}
+                              {page.instagram.posts[0].caption.length > 160 ? "…" : ""}&rdquo;
+                            </p>
+                          )}
+                          <p className="mt-1 text-sm">
+                            ❤️ {page.instagram.posts[0].likes} · 💬 {page.instagram.posts[0].comments}
+                          </p>
+                          {page.instagram.posts[0].permalinkUrl && (
+                            <a
+                              href={page.instagram.posts[0].permalinkUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mt-1 inline-block text-sm underline text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
+                            >
+                              Ver publicación
+                            </a>
+                          )}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               )}

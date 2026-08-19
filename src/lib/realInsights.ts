@@ -11,9 +11,10 @@ function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max)}…` : text;
 }
 
-// Only derives insights from data actually available today (post content,
-// timestamps, share counts). Likes/comments are excluded since Meta gates
-// them behind Advanced Access — see fetchPagePosts in lib/meta.ts.
+// Only derives insights from data actually available today. Facebook Page
+// likes/comments are excluded (gated behind Meta's Advanced Access), but
+// Instagram exposes like/comment counts under just instagram_basic — see
+// fetchInstagramMedia in lib/meta.ts.
 export function generateRealInsights(
   pages: PageActivity[],
   products: { name: string }[]
@@ -52,6 +53,30 @@ export function generateRealInsights(
       emoji: "🔥",
       title: "Oportunidad",
       description: `Tu publicación "${truncate(mostShared.message ?? "(sin texto)", 80)}" en ${mostShared.pageName} fue compartida ${mostShared.shares} veces — la más compartida entre tus publicaciones recientes.`,
+      recommendation: "Crea una campaña o publicación similar para capitalizar ese interés.",
+      actionLabel: "Crear campaña",
+      potential: "Alto",
+    });
+  }
+
+  const instagramPosts = usablePages
+    .filter((page) => page.instagram && !page.instagram.error)
+    .flatMap((page) =>
+      page.instagram!.posts.map((post) => ({
+        ...post,
+        username: page.instagram!.username,
+        engagement: post.likes + post.comments,
+      }))
+    );
+
+  const mostEngagedIgPost = instagramPosts.sort((a, b) => b.engagement - a.engagement)[0];
+
+  if (mostEngagedIgPost && mostEngagedIgPost.engagement > 0) {
+    insights.push({
+      kind: "opportunity",
+      emoji: "🔥",
+      title: "Oportunidad",
+      description: `Tu publicación "${truncate(mostEngagedIgPost.caption ?? "(sin texto)", 80)}" en Instagram (@${mostEngagedIgPost.username}) tiene ${mostEngagedIgPost.likes} likes y ${mostEngagedIgPost.comments} comentarios — tu contenido con más interacción real.`,
       recommendation: "Crea una campaña o publicación similar para capitalizar ese interés.",
       actionLabel: "Crear campaña",
       potential: "Alto",

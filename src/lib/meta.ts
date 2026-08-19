@@ -112,3 +112,46 @@ export async function fetchPagePosts(
   });
   return json.data;
 }
+
+export type InstagramAccount = {
+  id: string;
+  username: string;
+  followers_count?: number;
+  media_count?: number;
+  profile_picture_url?: string;
+};
+
+export async function fetchInstagramAccount(
+  igAccountId: string,
+  pageAccessToken: string
+): Promise<InstagramAccount> {
+  return graphGet<InstagramAccount>(`/${igAccountId}`, {
+    access_token: pageAccessToken,
+    fields: "username,followers_count,media_count,profile_picture_url",
+  });
+}
+
+export type InstagramMedia = {
+  id: string;
+  caption?: string;
+  timestamp: string;
+  media_type?: string;
+  permalink?: string;
+  like_count?: number;
+  comments_count?: number;
+};
+
+// Unlike Facebook Pages, Instagram exposes like_count/comments_count under
+// just instagram_basic — no Advanced Access wall here.
+export async function fetchInstagramMedia(
+  igAccountId: string,
+  pageAccessToken: string,
+  limit = 10
+): Promise<InstagramMedia[]> {
+  const json = await graphGet<{ data: InstagramMedia[] }>(`/${igAccountId}/media`, {
+    access_token: pageAccessToken,
+    fields: "caption,timestamp,media_type,permalink,like_count,comments_count",
+    limit: String(limit),
+  });
+  return json.data;
+}
