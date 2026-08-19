@@ -5,7 +5,7 @@ import { OBJECTIVES } from "@/lib/constants";
 import { generateInsights, type Insight } from "@/lib/insights";
 import { getPageActivity, type PageActivity } from "@/lib/pageActivity";
 import { generateRealInsights } from "@/lib/realInsights";
-import { disconnectMeta, createCampaign } from "./actions";
+import { disconnectMeta, refreshPages, createCampaign } from "./actions";
 
 export default async function BusinessProfilePage({
   params,
@@ -245,14 +245,24 @@ function ConnectionCard({
               : `${pages.length} página(s) conectada(s).`}
           </p>
         </div>
-        <form action={disconnectMeta.bind(null, business.id)}>
-          <button
-            type="submit"
-            className="shrink-0 rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-900"
-          >
-            Desconectar
-          </button>
-        </form>
+        <div className="flex shrink-0 gap-2">
+          <form action={refreshPages.bind(null, business.id)}>
+            <button
+              type="submit"
+              className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-900"
+            >
+              Actualizar páginas
+            </button>
+          </form>
+          <form action={disconnectMeta.bind(null, business.id)}>
+            <button
+              type="submit"
+              className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-900"
+            >
+              Desconectar
+            </button>
+          </form>
+        </div>
       </div>
       {pages.length > 0 && (
         <ul className="mt-4 space-y-1">

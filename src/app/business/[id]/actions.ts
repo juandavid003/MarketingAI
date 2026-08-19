@@ -5,9 +5,33 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { encryptSecret, decryptSecret } from "@/lib/crypto";
 import { generateCampaign, type AiProvider } from "@/lib/ai";
+import { fetchPages } from "@/lib/meta";
 
 export async function disconnectMeta(businessId: string) {
   await prisma.socialConnection.deleteMany({ where: { businessId } });
+  revalidatePath(`/business/${businessId}`);
+}
+
+export async function refreshPages(businessId: string) {
+  const connection = await prisma.socialConnection.findUnique({ where: { businessId } });
+  if (!connection) return;
+
+  const pages = await fetchPages(connection.accessToken);
+
+  await prisma.$transaction([
+    prisma.socialPage.deleteMany({ where: { connectionId: connection.id } }),
+    prisma.socialPage.createMany({
+      data: pages.map((page) => ({
+        connectionId: connection.id,
+        facebookPageId: page.id,
+        name: page.name,
+        pageAccessToken: page.access_token,
+        instagramAccountId: page.instagram_business_account?.id,
+        instagramUsername: page.instagram_business_account?.username,
+      })),
+    }),
+  ]);
+
   revalidatePath(`/business/${businessId}`);
 }
 
