@@ -28,10 +28,25 @@ model Business {
   // (encrypted, see lib/crypto.ts) — never a key belonging to the platform.
   aiProvider          String?
   aiApiKeyEncrypted   String?
+  aiModel             String?
   aiConfiguredAt      DateTime?
 
   products         Product[]
   socialConnection SocialConnection?
+  campaigns        Campaign[]
+}
+
+model Campaign {
+  id             String   @id @default(cuid())
+  business       Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId     String
+  title          String
+  sourceInsight  String
+  provider       String
+  model          String
+  content        String
+  status         String   @default("draft")
+  createdAt      DateTime @default(now())
 }
 
 model Product {

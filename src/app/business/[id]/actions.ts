@@ -1,8 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { encryptSecret } from "@/lib/crypto";
+import { encryptSecret, decryptSecret } from "@/lib/crypto";
+import { generateCampaign, type AiProvider } from "@/lib/ai";
 
 export async function disconnectMeta(businessId: string) {
   await prisma.socialConnection.deleteMany({ where: { businessId } });
@@ -26,6 +28,7 @@ export async function saveAiSettings(
 ): Promise<AiSettingsState> {
   const provider = formData.get("provider");
   const apiKey = formData.get("apiKey");
+  const modelOverride = formData.get("model");
 
   if (provider !== "anthropic" && provider !== "openai") {
     return { error: "Selecciona un proveedor válido." };
@@ -47,6 +50,7 @@ export async function saveAiSettings(
     data: {
       aiProvider: provider,
       aiApiKeyEncrypted: encryptSecret(trimmed),
+      aiModel: typeof modelOverride === "string" && modelOverride.trim() ? modelOverride.trim() : null,
       aiConfiguredAt: new Date(),
     },
   });
@@ -59,8 +63,69 @@ export async function saveAiSettings(
 export async function clearAiSettings(businessId: string) {
   await prisma.business.update({
     where: { id: businessId },
-    data: { aiProvider: null, aiApiKeyEncrypted: null, aiConfiguredAt: null },
+    data: { aiProvider: null, aiApiKeyEncrypted: null, aiModel: null, aiConfiguredAt: null },
   });
   revalidatePath(`/business/${businessId}`);
   revalidatePath(`/business/${businessId}/settings`);
+}
+
+export async function createCampaign(
+  businessId: string,
+  insightTitle: string,
+  insightSummary: string
+) {
+  const business = await prisma.business.findUnique({
+    where: { id: businessId },
+    include: { products: true },
+  });
+
+  if (!business) {
+    redirect("/");
+  }
+
+  if (!business.aiProvider || !business.aiApiKeyEncrypted) {
+    redirect(
+      `/business/${businessId}/settings?campaign_error=${encodeURIComponent(
+        "Configura tu proveedor de IA antes de crear una campaña."
+      )}`
+    );
+  }
+
+  let campaignId: string;
+
+  try {
+    const apiKey = decryptSecret(business.aiApiKeyEncrypted);
+    const { content, resolvedModel } = await generateCampaign({
+      provider: business.aiProvider as AiProvider,
+      apiKey,
+      model: business.aiModel,
+      business: {
+        name: business.name,
+        industry: business.industry,
+        description: business.description,
+        targetAudience: business.targetAudience,
+        location: business.location,
+        objective: business.objective,
+        products: business.products,
+      },
+      insightSummary,
+    });
+
+    const campaign = await prisma.campaign.create({
+      data: {
+        businessId,
+        title: insightTitle,
+        sourceInsight: insightSummary,
+        provider: business.aiProvider,
+        model: resolvedModel,
+        content: JSON.stringify(content),
+      },
+    });
+    campaignId = campaign.id;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Error al generar la campaña.";
+    redirect(`/business/${businessId}?campaign_error=${encodeURIComponent(message)}`);
+  }
+
+  redirect(`/business/${businessId}/campaigns/${campaignId}`);
 }

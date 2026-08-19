@@ -43,6 +43,22 @@ export default function AiSettingsForm({ businessId }: { businessId: string }) {
         </p>
       </div>
 
+      <div className="space-y-1">
+        <label htmlFor="model" className="block text-sm font-medium">
+          Modelo (opcional)
+        </label>
+        <input
+          id="model"
+          name="model"
+          type="text"
+          placeholder="Por defecto: claude-sonnet-5 / gpt-5-mini"
+          className="w-full rounded-md border border-neutral-300 bg-transparent px-3 py-2 text-sm outline-none focus:border-black dark:border-neutral-700 dark:focus:border-white"
+        />
+        <p className="text-xs text-neutral-500 dark:text-neutral-400">
+          Déjalo vacío para usar el modelo por defecto de cada proveedor.
+        </p>
+      </div>
+
       {state.error && (
         <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
           {state.error}

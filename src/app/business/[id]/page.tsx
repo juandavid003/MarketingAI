@@ -5,21 +5,25 @@ import { OBJECTIVES } from "@/lib/constants";
 import { generateInsights, type Insight } from "@/lib/insights";
 import { getPageActivity, type PageActivity } from "@/lib/pageActivity";
 import { generateRealInsights } from "@/lib/realInsights";
-import { disconnectMeta } from "./actions";
+import { disconnectMeta, createCampaign } from "./actions";
 
 export default async function BusinessProfilePage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ connected?: string; meta_error?: string }>;
+  searchParams: Promise<{ connected?: string; meta_error?: string; campaign_error?: string }>;
 }) {
   const { id } = await params;
-  const { connected, meta_error: metaError } = await searchParams;
+  const { connected, meta_error: metaError, campaign_error: campaignError } = await searchParams;
 
   const business = await prisma.business.findUnique({
     where: { id },
-    include: { products: true, socialConnection: { include: { pages: true } } },
+    include: {
+      products: true,
+      socialConnection: { include: { pages: true } },
+      campaigns: { orderBy: { createdAt: "desc" } },
+    },
   });
 
   if (!business) {
@@ -54,6 +58,11 @@ export default async function BusinessProfilePage({
           No se pudo conectar con Meta: {metaError}
         </p>
       )}
+      {campaignError && (
+        <p className="mt-4 rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+          No se pudo crear la campaña: {campaignError}
+        </p>
+      )}
 
       <ConnectionCard business={business} />
       <AiSettingsCard businessId={business.id} provider={business.aiProvider} />
@@ -84,15 +93,33 @@ export default async function BusinessProfilePage({
             <InsightCard
               key={insight.title + insight.description}
               insight={insight}
-              actionDisabledReason={
-                usingRealInsights
-                  ? "La creación de campañas llega en una próxima versión"
-                  : "Disponible cuando conectes tus redes"
-              }
+              businessId={business.id}
+              aiConfigured={business.aiProvider != null}
             />
           ))}
         </div>
       </section>
+
+      {business.campaigns.length > 0 && (
+        <section className="mt-14">
+          <h2 className="text-lg font-semibold">📣 Campañas</h2>
+          <ul className="mt-3 divide-y divide-neutral-200 dark:divide-neutral-800">
+            {business.campaigns.map((campaign) => (
+              <li key={campaign.id}>
+                <Link
+                  href={`/business/${business.id}/campaigns/${campaign.id}`}
+                  className="flex items-center justify-between py-3 hover:text-neutral-500"
+                >
+                  <span className="font-medium">{campaign.title}</span>
+                  <span className="text-sm text-neutral-500 dark:text-neutral-400">
+                    {new Date(campaign.createdAt).toLocaleDateString()}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="mt-14 space-y-6 border-t border-neutral-200 pt-10 dark:border-neutral-800">
         <h2 className="text-sm font-medium text-neutral-500 dark:text-neutral-400">
@@ -312,11 +339,17 @@ function PageActivitySection({ activity }: { activity: PageActivity[] }) {
 
 function InsightCard({
   insight,
-  actionDisabledReason,
+  businessId,
+  aiConfigured,
 }: {
   insight: Insight;
-  actionDisabledReason: string;
+  businessId: string;
+  aiConfigured: boolean;
 }) {
+  const insightSummary = insight.recommendation
+    ? `${insight.description} Recomendación: ${insight.recommendation}`
+    : insight.description;
+
   return (
     <div className="rounded-lg border border-neutral-200 p-5 dark:border-neutral-800">
       <div className="flex items-start justify-between gap-4">
@@ -338,16 +371,24 @@ function InsightCard({
           {insight.recommendation}
         </p>
       )}
-      {insight.actionLabel && (
-        <button
-          type="button"
-          disabled
-          title={actionDisabledReason}
-          className="mt-3 rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-400 cursor-not-allowed dark:border-neutral-700 dark:text-neutral-600"
-        >
-          {insight.actionLabel}
-        </button>
-      )}
+      {insight.actionLabel &&
+        (aiConfigured ? (
+          <form action={createCampaign.bind(null, businessId, insight.title, insightSummary)}>
+            <button
+              type="submit"
+              className="mt-3 rounded-md bg-black px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200"
+            >
+              {insight.actionLabel}
+            </button>
+          </form>
+        ) : (
+          <Link
+            href={`/business/${businessId}/settings`}
+            className="mt-3 inline-block rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-900"
+          >
+            Configura tu IA para generar
+          </Link>
+        ))}
     </div>
   );
 }
