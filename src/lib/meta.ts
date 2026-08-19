@@ -8,13 +8,14 @@ function requireEnv(name: string): string {
   return value;
 }
 
-// Instagram scopes (instagram_basic, instagram_manage_insights) are added back
-// once the Instagram product is enabled on the Meta app and the account is
-// registered as an Instagram Tester in dev mode.
+// instagram_manage_insights isn't offered by the "API setup with Facebook
+// Login" use-case customizer (only instagram_basic is) — it likely needs App
+// Review/Advanced Access, same as the Pages like/comment counts.
 export const META_SCOPES = [
   "pages_show_list",
   "pages_read_engagement",
   "business_management",
+  "instagram_basic",
 ].join(",");
 
 export function buildMetaAuthUrl(state: string): string {

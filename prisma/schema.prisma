@@ -24,6 +24,12 @@ model Business {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  // AI provider chosen by this business's owner, with their own API key
+  // (encrypted, see lib/crypto.ts) — never a key belonging to the platform.
+  aiProvider          String?
+  aiApiKeyEncrypted   String?
+  aiConfiguredAt      DateTime?
+
   products         Product[]
   socialConnection SocialConnection?
 }

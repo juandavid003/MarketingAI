@@ -56,6 +56,7 @@ export default async function BusinessProfilePage({
       )}
 
       <ConnectionCard business={business} />
+      <AiSettingsCard businessId={business.id} provider={business.aiProvider} />
 
       {pageActivity.length > 0 && <PageActivitySection activity={pageActivity} />}
 
@@ -133,6 +134,40 @@ export default async function BusinessProfilePage({
         + Agregar otro negocio
       </Link>
     </main>
+  );
+}
+
+const AI_PROVIDER_LABEL: Record<string, string> = {
+  anthropic: "Anthropic (Claude)",
+  openai: "OpenAI (GPT)",
+};
+
+function AiSettingsCard({
+  businessId,
+  provider,
+}: {
+  businessId: string;
+  provider: string | null;
+}) {
+  return (
+    <div className="mt-4 flex items-center justify-between gap-4 rounded-lg border border-neutral-200 p-5 dark:border-neutral-800">
+      <div>
+        <p className="font-medium">
+          {provider ? `✅ IA: ${AI_PROVIDER_LABEL[provider] ?? provider}` : "Configura tu proveedor de IA"}
+        </p>
+        <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+          {provider
+            ? "Usado para generar campañas y contenido."
+            : "Necesario para generar campañas y contenido con tu propia API key."}
+        </p>
+      </div>
+      <Link
+        href={`/business/${businessId}/settings`}
+        className="shrink-0 rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-900"
+      >
+        {provider ? "Editar" : "Configurar"}
+      </Link>
+    </div>
   );
 }
 
