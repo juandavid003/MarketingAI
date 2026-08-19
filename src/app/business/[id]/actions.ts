@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { encryptSecret, decryptSecret } from "@/lib/crypto";
-import { generateCampaign, type AiProvider } from "@/lib/ai";
+import { generateCampaign, generateStoryboard, type AiProvider, type GeneratedCampaign } from "@/lib/ai";
 import { fetchPages } from "@/lib/meta";
 
 export async function disconnectMeta(businessId: string) {
@@ -152,4 +152,90 @@ export async function createCampaign(
   }
 
   redirect(`/business/${businessId}/campaigns/${campaignId}`);
+}
+
+export async function createStoryboard(
+  businessId: string,
+  campaignId: string,
+  contentIndex: number
+) {
+  const [business, campaign] = await Promise.all([
+    prisma.business.findUnique({ where: { id: businessId }, include: { products: true } }),
+    prisma.campaign.findUnique({ where: { id: campaignId } }),
+  ]);
+
+  if (!business || !campaign || campaign.businessId !== businessId) {
+    redirect(`/business/${businessId}`);
+  }
+
+  if (!business.aiProvider || !business.aiApiKeyEncrypted) {
+    redirect(
+      `/business/${businessId}/settings?campaign_error=${encodeURIComponent(
+        "Configura tu proveedor de IA antes de generar un guion."
+      )}`
+    );
+  }
+
+  let campaignContent: GeneratedCampaign;
+  try {
+    campaignContent = JSON.parse(campaign.content) as GeneratedCampaign;
+  } catch {
+    redirect(
+      `/business/${businessId}/campaigns/${campaignId}?storyboard_error=${encodeURIComponent(
+        "No se pudo leer el contenido de esta campaña."
+      )}`
+    );
+  }
+
+  const item = campaignContent.contenido[contentIndex];
+  if (!item) {
+    redirect(
+      `/business/${businessId}/campaigns/${campaignId}?storyboard_error=${encodeURIComponent(
+        "Esa pieza de contenido ya no existe."
+      )}`
+    );
+  }
+
+  let storyboardId: string;
+
+  try {
+    const apiKey = decryptSecret(business.aiApiKeyEncrypted);
+    const { content, resolvedModel } = await generateStoryboard({
+      provider: business.aiProvider as AiProvider,
+      apiKey,
+      model: business.aiModel,
+      business: {
+        name: business.name,
+        industry: business.industry,
+        description: business.description,
+        targetAudience: business.targetAudience,
+        location: business.location,
+        objective: business.objective,
+        products: business.products,
+      },
+      concepto: campaignContent.concepto,
+      oferta: campaignContent.oferta,
+      cta: campaignContent.cta,
+      hook: item.hook,
+      formato: item.formato,
+    });
+
+    const storyboard = await prisma.storyboard.create({
+      data: {
+        campaignId,
+        contentIndex,
+        hook: item.hook,
+        format: item.formato,
+        provider: business.aiProvider,
+        model: resolvedModel,
+        scenes: JSON.stringify(content),
+      },
+    });
+    storyboardId = storyboard.id;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Error al generar el guion.";
+    redirect(`/business/${businessId}/campaigns/${campaignId}?storyboard_error=${encodeURIComponent(message)}`);
+  }
+
+  redirect(`/business/${businessId}/campaigns/${campaignId}/storyboards/${storyboardId}`);
 }

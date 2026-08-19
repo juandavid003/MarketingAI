@@ -163,6 +163,12 @@ function validateCampaign(value: unknown): GeneratedCampaign {
   };
 }
 
+async function callProvider(provider: AiProvider, apiKey: string, model: string, prompt: string): Promise<string> {
+  return provider === "anthropic"
+    ? callAnthropic(apiKey, model, prompt)
+    : callOpenAI(apiKey, model, prompt);
+}
+
 export async function generateCampaign(input: {
   provider: AiProvider;
   apiKey: string;
@@ -172,12 +178,100 @@ export async function generateCampaign(input: {
 }): Promise<{ content: GeneratedCampaign; resolvedModel: string }> {
   const resolvedModel = resolveModel(input.provider, input.model);
   const prompt = buildPrompt(input.business, input.insightSummary);
-
-  const rawText =
-    input.provider === "anthropic"
-      ? await callAnthropic(input.apiKey, resolvedModel, prompt)
-      : await callOpenAI(input.apiKey, resolvedModel, prompt);
-
+  const rawText = await callProvider(input.provider, input.apiKey, resolvedModel, prompt);
   const content = validateCampaign(extractJson(rawText));
+  return { content, resolvedModel };
+}
+
+export type GeneratedStoryboard = {
+  duracionTotal: string;
+  escenas: {
+    numero: number;
+    duracionSegundos: number;
+    visual: string;
+    textoPantalla: string;
+    vozEnOff: string;
+  }[];
+};
+
+function buildStoryboardPrompt(input: {
+  business: CampaignBusinessInput;
+  concepto: string;
+  oferta: string;
+  cta: string;
+  hook: string;
+  formato: string;
+}): string {
+  return `Eres un guionista experto en contenido de video corto para redes sociales (Reels, TikTok, Stories). Crea un storyboard/guion detallado en español para la siguiente pieza de contenido, parte de una campaña de marketing.
+
+Negocio: ${input.business.name}
+Industria: ${input.business.industry}
+Concepto de campaña: ${input.concepto}
+Oferta: ${input.oferta}
+CTA de campaña: ${input.cta}
+
+Pieza de contenido a guionizar:
+Formato: ${input.formato}
+Hook/gancho inicial: "${input.hook}"
+
+Responde ÚNICAMENTE con un objeto JSON válido (sin texto adicional, sin markdown, sin comentarios) con esta forma exacta:
+{
+  "duracionTotal": "ej. 30-45 segundos",
+  "escenas": [
+    {
+      "numero": 1,
+      "duracionSegundos": 5,
+      "visual": "descripción de lo que se ve en cámara/pantalla",
+      "textoPantalla": "texto que aparece en pantalla, o cadena vacía si no aplica",
+      "vozEnOff": "guion hablado o narración de esta escena, o cadena vacía si no aplica"
+    }
+  ]
+}
+Incluye entre 4 y 7 escenas que cubran, en orden: el gancho inicial, el desarrollo/contexto, la oferta, y el CTA final.`;
+}
+
+function validateStoryboard(value: unknown): GeneratedStoryboard {
+  if (typeof value !== "object" || value === null) {
+    throw new Error("La IA devolvió una respuesta con formato inesperado.");
+  }
+  const v = value as Record<string, unknown>;
+  if (typeof v.duracionTotal !== "string" || v.duracionTotal.length === 0) {
+    throw new Error('La IA no incluyó el campo "duracionTotal" en su respuesta.');
+  }
+  if (!Array.isArray(v.escenas) || v.escenas.length === 0) {
+    throw new Error('La IA no incluyó el campo "escenas" en su respuesta.');
+  }
+  const escenas = v.escenas.map((item, index) => {
+    if (typeof item !== "object" || item === null) {
+      throw new Error('Un elemento de "escenas" tiene formato inesperado.');
+    }
+    const e = item as Record<string, unknown>;
+    return {
+      numero: typeof e.numero === "number" ? e.numero : index + 1,
+      duracionSegundos: typeof e.duracionSegundos === "number" ? e.duracionSegundos : 5,
+      visual: typeof e.visual === "string" ? e.visual : "",
+      textoPantalla: typeof e.textoPantalla === "string" ? e.textoPantalla : "",
+      vozEnOff: typeof e.vozEnOff === "string" ? e.vozEnOff : "",
+    };
+  });
+
+  return { duracionTotal: v.duracionTotal, escenas };
+}
+
+export async function generateStoryboard(input: {
+  provider: AiProvider;
+  apiKey: string;
+  model: string | null;
+  business: CampaignBusinessInput;
+  concepto: string;
+  oferta: string;
+  cta: string;
+  hook: string;
+  formato: string;
+}): Promise<{ content: GeneratedStoryboard; resolvedModel: string }> {
+  const resolvedModel = resolveModel(input.provider, input.model);
+  const prompt = buildStoryboardPrompt(input);
+  const rawText = await callProvider(input.provider, input.apiKey, resolvedModel, prompt);
+  const content = validateStoryboard(extractJson(rawText));
   return { content, resolvedModel };
 }

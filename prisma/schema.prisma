@@ -47,6 +47,21 @@ model Campaign {
   content        String
   status         String   @default("draft")
   createdAt      DateTime @default(now())
+
+  storyboards Storyboard[]
+}
+
+model Storyboard {
+  id           String   @id @default(cuid())
+  campaign     Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaignId   String
+  contentIndex Int
+  hook         String
+  format       String
+  provider     String
+  model        String
+  scenes       String
+  createdAt    DateTime @default(now())
 }
 
 model Product {
