@@ -75,7 +75,10 @@ async function callAnthropic(apiKey: string, model: string, prompt: string): Pro
   if (!res.ok) {
     throw new Error(`Anthropic API error: ${json?.error?.message ?? JSON.stringify(json)}`);
   }
-  const text = json?.content?.[0]?.text;
+  // Some models prepend a "thinking" content block before the actual "text"
+  // block, so the response text isn't reliably at content[0].
+  const blocks: Array<{ type?: string; text?: string }> = Array.isArray(json?.content) ? json.content : [];
+  const text = blocks.find((block) => block.type === "text")?.text;
   if (typeof text !== "string" || text.length === 0) {
     throw new Error("Respuesta vacía de Anthropic.");
   }
