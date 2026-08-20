@@ -275,3 +275,91 @@ export async function generateStoryboard(input: {
   const content = validateStoryboard(extractJson(rawText));
   return { content, resolvedModel };
 }
+
+export type VideoAnalysis = {
+  startSeconds: number;
+  endSeconds: number;
+  reason: string;
+  hook: string;
+  cta: string;
+};
+
+function buildVideoAnalysisPrompt(input: {
+  business: CampaignBusinessInput;
+  transcriptSegments: { start: number; end: number; text: string }[];
+  totalDurationSeconds: number;
+}): string {
+  const transcriptLines = input.transcriptSegments
+    .map((seg) => `[${seg.start.toFixed(1)}s - ${seg.end.toFixed(1)}s] ${seg.text}`)
+    .join("\n");
+
+  return `Eres un editor de video experto en contenido corto para redes sociales (Reels, TikTok). Te doy la transcripción completa de un video grabado por un negocio, con marcas de tiempo en segundos.
+
+Negocio: ${input.business.name}
+Industria: ${input.business.industry}
+
+Duración total del video: ${input.totalDurationSeconds.toFixed(1)} segundos
+
+Transcripción con tiempos:
+${transcriptLines || "(sin diálogo detectado)"}
+
+Elige el mejor fragmento continuo de este video para convertirlo en un clip corto vertical, y sugiere un hook y un CTA en español para acompañarlo.
+
+Responde ÚNICAMENTE con un objeto JSON válido (sin texto adicional, sin markdown) con esta forma exacta:
+{
+  "startSeconds": 0,
+  "endSeconds": 0,
+  "reason": "por qué elegiste este fragmento",
+  "hook": "texto corto y llamativo para mostrar en pantalla al inicio del clip",
+  "cta": "llamado a la acción para cerrar el clip"
+}
+El fragmento debe durar entre 15 y 45 segundos, y startSeconds/endSeconds deben estar dentro de [0, ${input.totalDurationSeconds.toFixed(1)}].`;
+}
+
+function validateVideoAnalysis(value: unknown, totalDurationSeconds: number): VideoAnalysis {
+  if (typeof value !== "object" || value === null) {
+    throw new Error("La IA devolvió una respuesta con formato inesperado.");
+  }
+  const v = value as Record<string, unknown>;
+  const required = ["reason", "hook", "cta"];
+  for (const field of required) {
+    if (typeof v[field] !== "string" || (v[field] as string).length === 0) {
+      throw new Error(`La IA no incluyó el campo "${field}" en su respuesta.`);
+    }
+  }
+  if (typeof v.startSeconds !== "number" || typeof v.endSeconds !== "number") {
+    throw new Error("La IA no incluyó los tiempos de inicio/fin del fragmento.");
+  }
+
+  // Defensive clamping: these numbers drive ffmpeg trimming directly, so a
+  // malformed or out-of-range response shouldn't be able to break rendering.
+  let start = Math.max(0, Math.min(v.startSeconds, totalDurationSeconds));
+  let end = Math.max(0, Math.min(v.endSeconds, totalDurationSeconds));
+  if (end <= start) {
+    start = 0;
+    end = Math.min(30, totalDurationSeconds);
+  }
+
+  return {
+    startSeconds: start,
+    endSeconds: end,
+    reason: v.reason as string,
+    hook: v.hook as string,
+    cta: v.cta as string,
+  };
+}
+
+export async function analyzeVideoTranscript(input: {
+  provider: AiProvider;
+  apiKey: string;
+  model: string | null;
+  business: CampaignBusinessInput;
+  transcriptSegments: { start: number; end: number; text: string }[];
+  totalDurationSeconds: number;
+}): Promise<{ content: VideoAnalysis; resolvedModel: string }> {
+  const resolvedModel = resolveModel(input.provider, input.model);
+  const prompt = buildVideoAnalysisPrompt(input);
+  const rawText = await callProvider(input.provider, input.apiKey, resolvedModel, prompt);
+  const content = validateVideoAnalysis(extractJson(rawText), input.totalDurationSeconds);
+  return { content, resolvedModel };
+}

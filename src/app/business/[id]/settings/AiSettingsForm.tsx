@@ -59,6 +59,23 @@ export default function AiSettingsForm({ businessId }: { businessId: string }) {
         </p>
       </div>
 
+      <div className="space-y-1 border-t border-neutral-200 pt-5 dark:border-neutral-800">
+        <label htmlFor="openaiTranscriptionKey" className="block text-sm font-medium">
+          OpenAI key para transcripción de video (opcional)
+        </label>
+        <input
+          id="openaiTranscriptionKey"
+          name="openaiTranscriptionKey"
+          type="password"
+          autoComplete="off"
+          placeholder="sk-..."
+          className="w-full rounded-md border border-neutral-300 bg-transparent px-3 py-2 text-sm outline-none focus:border-black dark:border-neutral-700 dark:focus:border-white"
+        />
+        <p className="text-xs text-neutral-500 dark:text-neutral-400">
+          Necesaria solo para editar videos con IA (transcripción con Whisper). Independiente del proveedor elegido arriba para generar texto.
+        </p>
+      </div>
+
       {state.error && (
         <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
           {state.error}

@@ -53,6 +53,7 @@ export async function saveAiSettings(
   const provider = formData.get("provider");
   const apiKey = formData.get("apiKey");
   const modelOverride = formData.get("model");
+  const openaiTranscriptionKey = formData.get("openaiTranscriptionKey");
 
   if (provider !== "anthropic" && provider !== "openai") {
     return { error: "Selecciona un proveedor válido." };
@@ -69,6 +70,14 @@ export async function saveAiSettings(
     };
   }
 
+  let transcriptionKeyTrimmed: string | null = null;
+  if (typeof openaiTranscriptionKey === "string" && openaiTranscriptionKey.trim().length > 0) {
+    transcriptionKeyTrimmed = openaiTranscriptionKey.trim();
+    if (!transcriptionKeyTrimmed.startsWith("sk-")) {
+      return { error: 'La API key de OpenAI para transcripción debe empezar con "sk-".' };
+    }
+  }
+
   await prisma.business.update({
     where: { id: businessId },
     data: {
@@ -76,6 +85,9 @@ export async function saveAiSettings(
       aiApiKeyEncrypted: encryptSecret(trimmed),
       aiModel: typeof modelOverride === "string" && modelOverride.trim() ? modelOverride.trim() : null,
       aiConfiguredAt: new Date(),
+      ...(transcriptionKeyTrimmed
+        ? { openaiTranscriptionKeyEncrypted: encryptSecret(transcriptionKeyTrimmed) }
+        : {}),
     },
   });
 
@@ -88,6 +100,15 @@ export async function clearAiSettings(businessId: string) {
   await prisma.business.update({
     where: { id: businessId },
     data: { aiProvider: null, aiApiKeyEncrypted: null, aiModel: null, aiConfiguredAt: null },
+  });
+  revalidatePath(`/business/${businessId}`);
+  revalidatePath(`/business/${businessId}/settings`);
+}
+
+export async function clearTranscriptionKey(businessId: string) {
+  await prisma.business.update({
+    where: { id: businessId },
+    data: { openaiTranscriptionKeyEncrypted: null },
   });
   revalidatePath(`/business/${businessId}`);
   revalidatePath(`/business/${businessId}/settings`);

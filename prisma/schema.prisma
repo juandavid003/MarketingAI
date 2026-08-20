@@ -31,9 +31,14 @@ model Business {
   aiModel             String?
   aiConfiguredAt      DateTime?
 
+  // Separate from aiApiKeyEncrypted: transcription (Whisper) is only offered
+  // by OpenAI, regardless of which provider is chosen for text generation.
+  openaiTranscriptionKeyEncrypted String?
+
   products         Product[]
   socialConnection SocialConnection?
   campaigns        Campaign[]
+  videoAssets      VideoAsset[]
 }
 
 model Campaign {
@@ -62,6 +67,35 @@ model Storyboard {
   model        String
   scenes       String
   createdAt    DateTime @default(now())
+}
+
+model VideoAsset {
+  id               String   @id @default(cuid())
+  business         Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId       String
+  originalFilename String
+  originalPath     String
+  durationSeconds  Float?
+  status           String   @default("uploaded") // uploaded | transcribing | analyzing | rendering | ready | error
+  transcript       String? // JSON: { segments: [{ start, end, text }] }
+  errorMessage     String?
+  createdAt        DateTime @default(now())
+
+  versions VideoVersion[]
+}
+
+model VideoVersion {
+  id            String     @id @default(cuid())
+  videoAsset    VideoAsset @relation(fields: [videoAssetId], references: [id], onDelete: Cascade)
+  videoAssetId  String
+  label         String
+  outputPath    String
+  thumbnailPath String?
+  hook          String?
+  cta           String?
+  startSeconds  Float
+  endSeconds    Float
+  createdAt     DateTime   @default(now())
 }
 
 model Product {

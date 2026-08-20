@@ -23,6 +23,7 @@ export default async function BusinessProfilePage({
       products: true,
       socialConnection: { include: { pages: true } },
       campaigns: { orderBy: { createdAt: "desc" } },
+      videoAssets: { orderBy: { createdAt: "desc" } },
     },
   });
 
@@ -120,6 +121,33 @@ export default async function BusinessProfilePage({
           </ul>
         </section>
       )}
+
+      <section className="mt-14">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">🎬 Videos</h2>
+          <Link
+            href={`/business/${business.id}/videos/upload`}
+            className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-900"
+          >
+            Subir video
+          </Link>
+        </div>
+        {business.videoAssets.length > 0 && (
+          <ul className="mt-3 divide-y divide-neutral-200 dark:divide-neutral-800">
+            {business.videoAssets.map((video) => (
+              <li key={video.id}>
+                <Link
+                  href={`/business/${business.id}/videos/${video.id}`}
+                  className="flex items-center justify-between py-3 hover:text-neutral-500"
+                >
+                  <span className="font-medium">{video.originalFilename}</span>
+                  <span className="text-sm text-neutral-500 dark:text-neutral-400">{video.status}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section className="mt-14 space-y-6 border-t border-neutral-200 pt-10 dark:border-neutral-800">
         <h2 className="text-sm font-medium text-neutral-500 dark:text-neutral-400">
