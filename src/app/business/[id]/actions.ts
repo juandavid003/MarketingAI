@@ -4,8 +4,24 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { encryptSecret, decryptSecret } from "@/lib/crypto";
-import { generateCampaign, generateStoryboard, type AiProvider, type GeneratedCampaign } from "@/lib/ai";
+import { generateCampaign, generateStoryboard, generateImagePrompt, type AiProvider, type GeneratedCampaign } from "@/lib/ai";
 import { fetchPages } from "@/lib/meta";
+import { generateImage } from "@/lib/images";
+import { mkdir, writeFile } from "fs/promises";
+import path from "path";
+
+// Image generation (GPT Image) is OpenAI-only. If the business already uses
+// OpenAI for text, its main key doubles as the image key; otherwise a
+// dedicated openaiImageKeyEncrypted is required (set in AI settings).
+function resolveOpenAiImageKeyEncrypted(business: {
+  aiProvider: string | null;
+  aiApiKeyEncrypted: string | null;
+  openaiImageKeyEncrypted: string | null;
+}): string | null {
+  if (business.openaiImageKeyEncrypted) return business.openaiImageKeyEncrypted;
+  if (business.aiProvider === "openai" && business.aiApiKeyEncrypted) return business.aiApiKeyEncrypted;
+  return null;
+}
 
 export async function disconnectMeta(businessId: string) {
   await prisma.socialConnection.deleteMany({ where: { businessId } });
@@ -54,6 +70,7 @@ export async function saveAiSettings(
   const apiKey = formData.get("apiKey");
   const modelOverride = formData.get("model");
   const openaiTranscriptionKey = formData.get("openaiTranscriptionKey");
+  const openaiImageKey = formData.get("openaiImageKey");
 
   if (provider !== "anthropic" && provider !== "openai") {
     return { error: "Selecciona un proveedor válido." };
@@ -78,6 +95,14 @@ export async function saveAiSettings(
     }
   }
 
+  let imageKeyTrimmed: string | null = null;
+  if (typeof openaiImageKey === "string" && openaiImageKey.trim().length > 0) {
+    imageKeyTrimmed = openaiImageKey.trim();
+    if (!imageKeyTrimmed.startsWith("sk-")) {
+      return { error: 'La API key de OpenAI para imágenes debe empezar con "sk-".' };
+    }
+  }
+
   await prisma.business.update({
     where: { id: businessId },
     data: {
@@ -88,6 +113,7 @@ export async function saveAiSettings(
       ...(transcriptionKeyTrimmed
         ? { openaiTranscriptionKeyEncrypted: encryptSecret(transcriptionKeyTrimmed) }
         : {}),
+      ...(imageKeyTrimmed ? { openaiImageKeyEncrypted: encryptSecret(imageKeyTrimmed) } : {}),
     },
   });
 
@@ -109,6 +135,15 @@ export async function clearTranscriptionKey(businessId: string) {
   await prisma.business.update({
     where: { id: businessId },
     data: { openaiTranscriptionKeyEncrypted: null },
+  });
+  revalidatePath(`/business/${businessId}`);
+  revalidatePath(`/business/${businessId}/settings`);
+}
+
+export async function clearImageKey(businessId: string) {
+  await prisma.business.update({
+    where: { id: businessId },
+    data: { openaiImageKeyEncrypted: null },
   });
   revalidatePath(`/business/${businessId}`);
   revalidatePath(`/business/${businessId}/settings`);
@@ -328,4 +363,103 @@ export async function createStoryboard(
   }
 
   redirect(`/business/${businessId}/campaigns/${campaignId}/storyboards/${storyboardId}`);
+}
+
+export async function createCampaignImage(
+  businessId: string,
+  campaignId: string,
+  contentIndex: number
+) {
+  const [business, campaign] = await Promise.all([
+    prisma.business.findUnique({ where: { id: businessId }, include: { products: true } }),
+    prisma.campaign.findUnique({ where: { id: campaignId } }),
+  ]);
+
+  if (!business || !campaign || campaign.businessId !== businessId) {
+    redirect(`/business/${businessId}`);
+  }
+
+  if (!business.aiProvider || !business.aiApiKeyEncrypted) {
+    redirect(
+      `/business/${businessId}/settings?campaign_error=${encodeURIComponent(
+        "Configura tu proveedor de IA antes de generar una imagen."
+      )}`
+    );
+  }
+
+  const openaiImageKeyEncrypted = resolveOpenAiImageKeyEncrypted(business);
+  if (!openaiImageKeyEncrypted) {
+    redirect(
+      `/business/${businessId}/settings?campaign_error=${encodeURIComponent(
+        "Configura tu API key de OpenAI para generar imágenes antes de continuar."
+      )}`
+    );
+  }
+
+  let campaignContent: GeneratedCampaign;
+  try {
+    campaignContent = JSON.parse(campaign.content) as GeneratedCampaign;
+  } catch {
+    redirect(
+      `/business/${businessId}/campaigns/${campaignId}?image_error=${encodeURIComponent(
+        "No se pudo leer el contenido de esta campaña."
+      )}`
+    );
+  }
+
+  const item = campaignContent.contenido[contentIndex];
+  if (!item) {
+    redirect(
+      `/business/${businessId}/campaigns/${campaignId}?image_error=${encodeURIComponent(
+        "Esa pieza de contenido ya no existe."
+      )}`
+    );
+  }
+
+  try {
+    const textApiKey = decryptSecret(business.aiApiKeyEncrypted);
+    const { imagePrompt } = await generateImagePrompt({
+      provider: business.aiProvider as AiProvider,
+      apiKey: textApiKey,
+      model: business.aiModel,
+      business: {
+        name: business.name,
+        industry: business.industry,
+        description: business.description,
+        targetAudience: business.targetAudience,
+        location: business.location,
+        objective: business.objective,
+        products: business.products,
+      },
+      concepto: campaignContent.concepto,
+      oferta: campaignContent.oferta,
+      hook: item.hook,
+      formato: item.formato,
+    });
+
+    const imageApiKey = decryptSecret(openaiImageKeyEncrypted);
+    const imageBuffer = await generateImage(imageApiKey, imagePrompt);
+
+    const dir = path.join(process.cwd(), "public", "uploads", businessId, "campaign-images");
+    await mkdir(dir, { recursive: true });
+    const filename = `${campaignId}-${contentIndex}-${Date.now()}.png`;
+    await writeFile(path.join(dir, filename), imageBuffer);
+    const imagePublicPath = `/uploads/${businessId}/campaign-images/${filename}`;
+
+    await prisma.campaignImage.create({
+      data: {
+        campaignId,
+        contentIndex,
+        prompt: imagePrompt,
+        imagePath: imagePublicPath,
+        provider: "openai",
+        model: "gpt-image-2",
+      },
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Error al generar la imagen.";
+    redirect(`/business/${businessId}/campaigns/${campaignId}?image_error=${encodeURIComponent(message)}`);
+  }
+
+  redirect(`/business/${businessId}/campaigns/${campaignId}`);
 }

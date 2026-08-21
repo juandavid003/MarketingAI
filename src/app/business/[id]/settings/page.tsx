@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { clearAiSettings, clearTranscriptionKey } from "../actions";
+import { clearAiSettings, clearTranscriptionKey, clearImageKey } from "../actions";
 import AiSettingsForm from "./AiSettingsForm";
 
 const PROVIDER_LABEL: Record<string, string> = {
@@ -24,6 +24,7 @@ export default async function AiSettingsPage({
       aiProvider: true,
       aiConfiguredAt: true,
       openaiTranscriptionKeyEncrypted: true,
+      openaiImageKeyEncrypted: true,
     },
   });
 
@@ -65,6 +66,20 @@ export default async function AiSettingsPage({
         <div className="mt-4 flex items-center justify-between gap-4 rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
           <p className="text-sm">✅ OpenAI para transcripción de video: configurada</p>
           <form action={clearTranscriptionKey.bind(null, business.id)}>
+            <button
+              type="submit"
+              className="shrink-0 rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-900"
+            >
+              Quitar
+            </button>
+          </form>
+        </div>
+      )}
+
+      {business.openaiImageKeyEncrypted && (
+        <div className="mt-4 flex items-center justify-between gap-4 rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
+          <p className="text-sm">✅ OpenAI para imágenes: configurada</p>
+          <form action={clearImageKey.bind(null, business.id)}>
             <button
               type="submit"
               className="shrink-0 rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-900"

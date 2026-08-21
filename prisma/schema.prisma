@@ -35,6 +35,11 @@ model Business {
   // by OpenAI, regardless of which provider is chosen for text generation.
   openaiTranscriptionKeyEncrypted String?
 
+  // Same idea for image generation (GPT Image), only offered by OpenAI.
+  // When aiProvider is already "openai", aiApiKeyEncrypted is reused instead
+  // of requiring this — see resolveOpenAiImageKey in actions.ts.
+  openaiImageKeyEncrypted String?
+
   products         Product[]
   socialConnection SocialConnection?
   campaigns        Campaign[]
@@ -54,6 +59,19 @@ model Campaign {
   createdAt      DateTime @default(now())
 
   storyboards Storyboard[]
+  images      CampaignImage[]
+}
+
+model CampaignImage {
+  id           String   @id @default(cuid())
+  campaign     Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaignId   String
+  contentIndex Int
+  prompt       String
+  imagePath    String
+  provider     String
+  model        String
+  createdAt    DateTime @default(now())
 }
 
 model Storyboard {

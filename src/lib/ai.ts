@@ -373,3 +373,53 @@ export async function analyzeVideoTranscript(input: {
   const content = validateVideoAnalysis(extractJson(rawText), input.totalDurationSeconds);
   return { content, resolvedModel };
 }
+
+function buildImagePromptPrompt(input: {
+  business: CampaignBusinessInput;
+  concepto: string;
+  oferta: string;
+  hook: string;
+  formato: string;
+}): string {
+  return `Eres un director de arte experto en publicidad para redes sociales. Escribe un prompt en INGLÉS, detallado y vívido, para un modelo de generación de imágenes (tipo DALL-E), que produzca una imagen publicitaria para la siguiente pieza de contenido.
+
+Business: ${input.business.name}
+Industry: ${input.business.industry}
+Campaign concept: ${input.concepto}
+Offer: ${input.oferta}
+Content hook: "${input.hook}"
+Format: ${input.formato}
+
+Responde ÚNICAMENTE con un objeto JSON válido (sin texto adicional, sin markdown) con esta forma exacta:
+{
+  "imagePrompt": "prompt detallado en inglés para el modelo de imagen, describiendo composición, estilo, iluminación y ánimo — sin incluir texto/letras dentro de la imagen"
+}`;
+}
+
+function validateImagePromptResult(value: unknown): string {
+  if (typeof value !== "object" || value === null) {
+    throw new Error("La IA devolvió una respuesta con formato inesperado.");
+  }
+  const v = value as Record<string, unknown>;
+  if (typeof v.imagePrompt !== "string" || v.imagePrompt.length === 0) {
+    throw new Error('La IA no incluyó el campo "imagePrompt" en su respuesta.');
+  }
+  return v.imagePrompt;
+}
+
+export async function generateImagePrompt(input: {
+  provider: AiProvider;
+  apiKey: string;
+  model: string | null;
+  business: CampaignBusinessInput;
+  concepto: string;
+  oferta: string;
+  hook: string;
+  formato: string;
+}): Promise<{ imagePrompt: string; resolvedModel: string }> {
+  const resolvedModel = resolveModel(input.provider, input.model);
+  const prompt = buildImagePromptPrompt(input);
+  const rawText = await callProvider(input.provider, input.apiKey, resolvedModel, prompt);
+  const imagePrompt = validateImagePromptResult(extractJson(rawText));
+  return { imagePrompt, resolvedModel };
+}

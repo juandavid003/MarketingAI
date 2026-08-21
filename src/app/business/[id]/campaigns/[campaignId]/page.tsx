@@ -1,22 +1,26 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { prisma } from "@/lib/prisma";
 import type { GeneratedCampaign } from "@/lib/ai";
-import { createStoryboard } from "../../actions";
+import { createStoryboard, createCampaignImage } from "../../actions";
 
 export default async function CampaignPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string; campaignId: string }>;
-  searchParams: Promise<{ storyboard_error?: string }>;
+  searchParams: Promise<{ storyboard_error?: string; image_error?: string }>;
 }) {
   const { id, campaignId } = await params;
-  const { storyboard_error: storyboardError } = await searchParams;
+  const { storyboard_error: storyboardError, image_error: imageError } = await searchParams;
 
   const campaign = await prisma.campaign.findUnique({
     where: { id: campaignId },
-    include: { storyboards: { orderBy: { createdAt: "desc" } } },
+    include: {
+      storyboards: { orderBy: { createdAt: "desc" } },
+      images: { orderBy: { createdAt: "desc" } },
+    },
   });
 
   if (!campaign || campaign.businessId !== id) {
@@ -31,6 +35,7 @@ export default async function CampaignPage({
   }
 
   const storyboardByIndex = new Map(campaign.storyboards.map((sb) => [sb.contentIndex, sb]));
+  const imageByIndex = new Map(campaign.images.map((img) => [img.contentIndex, img]));
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-16">
@@ -54,6 +59,11 @@ export default async function CampaignPage({
           No se pudo generar el guion: {storyboardError}
         </p>
       )}
+      {imageError && (
+        <p className="mt-4 rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+          No se pudo generar la imagen: {imageError}
+        </p>
+      )}
 
       <div className="mt-8 space-y-6">
         <Section label="Objetivo" value={content.objetivo} />
@@ -65,27 +75,52 @@ export default async function CampaignPage({
           <div className="mt-2 space-y-3">
             {content.contenido.map((item, i) => {
               const storyboard = storyboardByIndex.get(i);
+              const image = imageByIndex.get(i);
               return (
                 <div key={i} className="rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
                   <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">{item.formato}</p>
                   <p className="mt-1 text-sm">&ldquo;{item.hook}&rdquo;</p>
-                  {storyboard ? (
-                    <Link
-                      href={`/business/${id}/campaigns/${campaignId}/storyboards/${storyboard.id}`}
-                      className="mt-2 inline-block text-sm underline text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
-                    >
-                      Ver guion generado →
-                    </Link>
-                  ) : (
-                    <form action={createStoryboard.bind(null, id, campaignId, i)}>
-                      <button
-                        type="submit"
-                        className="mt-2 rounded-md bg-black px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200"
-                      >
-                        Generar storyboard y guion
-                      </button>
-                    </form>
+
+                  {image && (
+                    <Image
+                      src={image.imagePath}
+                      alt={item.hook}
+                      width={256}
+                      height={384}
+                      className="mt-2 w-40 rounded-md border border-neutral-200 dark:border-neutral-800"
+                    />
                   )}
+
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {storyboard ? (
+                      <Link
+                        href={`/business/${id}/campaigns/${campaignId}/storyboards/${storyboard.id}`}
+                        className="inline-block text-sm underline text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
+                      >
+                        Ver guion generado →
+                      </Link>
+                    ) : (
+                      <form action={createStoryboard.bind(null, id, campaignId, i)}>
+                        <button
+                          type="submit"
+                          className="rounded-md bg-black px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200"
+                        >
+                          Generar storyboard y guion
+                        </button>
+                      </form>
+                    )}
+
+                    {!image && (
+                      <form action={createCampaignImage.bind(null, id, campaignId, i)}>
+                        <button
+                          type="submit"
+                          className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-900"
+                        >
+                          Generar imagen
+                        </button>
+                      </form>
+                    )}
+                  </div>
                 </div>
               );
             })}
