@@ -5,7 +5,7 @@ import { OBJECTIVES } from "@/lib/constants";
 import { generateInsights, type Insight } from "@/lib/insights";
 import { getPageActivity, type PageActivity } from "@/lib/pageActivity";
 import { generateRealInsights } from "@/lib/realInsights";
-import { disconnectMeta, refreshPages, createCampaign } from "./actions";
+import { disconnectMeta, refreshPages, createCampaign, createCampaignFromObjective } from "./actions";
 
 export default async function BusinessProfilePage({
   params,
@@ -69,6 +69,8 @@ export default async function BusinessProfilePage({
       <AiSettingsCard businessId={business.id} provider={business.aiProvider} />
 
       {pageActivity.length > 0 && <PageActivitySection activity={pageActivity} />}
+
+      <GoalCampaignSection businessId={business.id} aiConfigured={business.aiProvider != null} />
 
       <section className="mt-10">
         <div className="flex items-center justify-between">
@@ -196,6 +198,48 @@ const AI_PROVIDER_LABEL: Record<string, string> = {
   anthropic: "Anthropic (Claude)",
   openai: "OpenAI (GPT)",
 };
+
+function GoalCampaignSection({
+  businessId,
+  aiConfigured,
+}: {
+  businessId: string;
+  aiConfigured: boolean;
+}) {
+  return (
+    <section className="mt-10 rounded-lg border border-neutral-200 p-5 dark:border-neutral-800">
+      <h2 className="text-lg font-semibold">🎯 ¿Qué quieres lograr?</h2>
+      <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+        Dile a la IA tu objetivo y te propone una campaña completa, sin esperar a que detecte una oportunidad.
+      </p>
+
+      {aiConfigured ? (
+        <form action={createCampaignFromObjective.bind(null, businessId)} className="mt-4 space-y-3">
+          <textarea
+            name="goal"
+            required
+            rows={2}
+            placeholder="Ej. Quiero vender más blanqueamientos este mes"
+            className="w-full rounded-md border border-neutral-300 bg-transparent px-3 py-2 text-sm outline-none focus:border-black dark:border-neutral-700 dark:focus:border-white"
+          />
+          <button
+            type="submit"
+            className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200"
+          >
+            Crear campaña
+          </button>
+        </form>
+      ) : (
+        <Link
+          href={`/business/${businessId}/settings`}
+          className="mt-4 inline-block text-sm underline text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
+        >
+          Configura tu IA para usar esta función →
+        </Link>
+      )}
+    </section>
+  );
+}
 
 function AiSettingsCard({
   businessId,

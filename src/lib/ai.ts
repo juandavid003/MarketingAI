@@ -28,10 +28,19 @@ function resolveModel(provider: AiProvider, override: string | null): string {
   return override?.trim() || DEFAULT_MODELS[provider];
 }
 
-function buildPrompt(business: CampaignBusinessInput, insightSummary: string): string {
+function buildPrompt(
+  business: CampaignBusinessInput,
+  insightSummary: string,
+  briefKind: "insight" | "goal"
+): string {
   const productNames = business.products.map((p) => p.name).join(", ") || "sus productos/servicios";
+  const briefLabel = briefKind === "goal" ? "Lo que el dueño del negocio quiere lograr" : "Oportunidad detectada";
+  const basisPhrase =
+    briefKind === "goal"
+      ? "basada en lo que el dueño del negocio te pide directamente."
+      : "basada en la oportunidad detectada.";
 
-  return `Eres un estratega de marketing experto en negocios locales. Genera una propuesta de campaña de marketing en español para el siguiente negocio, basada en la oportunidad detectada.
+  return `Eres un estratega de marketing experto en negocios locales. Genera una propuesta de campaña de marketing en español para el siguiente negocio, ${basisPhrase}
 
 Negocio: ${business.name}
 Industria: ${business.industry}
@@ -41,7 +50,7 @@ Audiencia objetivo: ${business.targetAudience}
 Ubicación: ${business.location}
 Objetivo de negocio: ${business.objective}
 
-Oportunidad detectada: ${insightSummary}
+${briefLabel}: ${insightSummary}
 
 Responde ÚNICAMENTE con un objeto JSON válido (sin texto adicional, sin markdown, sin comentarios) con esta forma exacta:
 {
@@ -175,9 +184,10 @@ export async function generateCampaign(input: {
   model: string | null;
   business: CampaignBusinessInput;
   insightSummary: string;
+  briefKind?: "insight" | "goal";
 }): Promise<{ content: GeneratedCampaign; resolvedModel: string }> {
   const resolvedModel = resolveModel(input.provider, input.model);
-  const prompt = buildPrompt(input.business, input.insightSummary);
+  const prompt = buildPrompt(input.business, input.insightSummary, input.briefKind ?? "insight");
   const rawText = await callProvider(input.provider, input.apiKey, resolvedModel, prompt);
   const content = validateCampaign(extractJson(rawText));
   return { content, resolvedModel };

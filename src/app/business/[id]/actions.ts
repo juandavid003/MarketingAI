@@ -175,6 +175,75 @@ export async function createCampaign(
   redirect(`/business/${businessId}/campaigns/${campaignId}`);
 }
 
+export async function createCampaignFromObjective(businessId: string, formData: FormData) {
+  const goalRaw = formData.get("goal");
+  const goal = typeof goalRaw === "string" ? goalRaw.trim() : "";
+
+  if (goal.length < 5) {
+    redirect(
+      `/business/${businessId}?campaign_error=${encodeURIComponent(
+        "Describe con un poco más de detalle qué quieres lograr."
+      )}`
+    );
+  }
+
+  const business = await prisma.business.findUnique({
+    where: { id: businessId },
+    include: { products: true },
+  });
+
+  if (!business) {
+    redirect("/");
+  }
+
+  if (!business.aiProvider || !business.aiApiKeyEncrypted) {
+    redirect(
+      `/business/${businessId}/settings?campaign_error=${encodeURIComponent(
+        "Configura tu proveedor de IA antes de crear una campaña."
+      )}`
+    );
+  }
+
+  let campaignId: string;
+
+  try {
+    const apiKey = decryptSecret(business.aiApiKeyEncrypted);
+    const { content, resolvedModel } = await generateCampaign({
+      provider: business.aiProvider as AiProvider,
+      apiKey,
+      model: business.aiModel,
+      business: {
+        name: business.name,
+        industry: business.industry,
+        description: business.description,
+        targetAudience: business.targetAudience,
+        location: business.location,
+        objective: business.objective,
+        products: business.products,
+      },
+      insightSummary: goal,
+      briefKind: "goal",
+    });
+
+    const campaign = await prisma.campaign.create({
+      data: {
+        businessId,
+        title: goal.length > 60 ? `${goal.slice(0, 60)}…` : goal,
+        sourceInsight: goal,
+        provider: business.aiProvider,
+        model: resolvedModel,
+        content: JSON.stringify(content),
+      },
+    });
+    campaignId = campaign.id;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Error al generar la campaña.";
+    redirect(`/business/${businessId}?campaign_error=${encodeURIComponent(message)}`);
+  }
+
+  redirect(`/business/${businessId}/campaigns/${campaignId}`);
+}
+
 export async function createStoryboard(
   businessId: string,
   campaignId: string,
