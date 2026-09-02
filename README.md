@@ -369,4 +369,77 @@ ahi configuras la configuracion de la api con inicio de sesion
 5.- te vas a app de Instagram en tu teléfono con esa cuenta → Configuración → Aplicaciones y sitios web → Invitaciones de prueba (Settings → Apps and Websites → Tester Invites) → acepta la invitación de tu app
 6.- configurar apikey ya sea de antropic u openai
 7.- conectar perfil de intagram profesional con pagina de facebook
-8.-
+8.- antes de pedir nada avanzado, completa la configuración básica de la app (Meta la exige):
+   - Configuración → Básica → Política de privacidad: usa la URL de /privacy de esta app
+     (cuando esté desplegada; en local es http://localhost:3000/privacy, no sirve para Meta)
+   - Configuración → Básica → Ícono de la app: sube uno de 1024x1024
+   - Configuración → Básica → Categoría de la app
+
+9.- Verificación de negocio (Business Verification) — la haces tú, con rol de Admin en tu
+    Business Manager. Es requisito para todo lo que sigue (Ad Library API y App Review),
+    así que hazla primero — puede tardar días en aprobarse:
+   - business.facebook.com → Configuración del negocio → Centro de seguridad →
+     Verificación del negocio
+   - Sube UN documento que confirme el nombre legal y la dirección registrada del negocio,
+     emitido en los últimos 12 meses: acta constitutiva, RUC/registro de negocio, documento
+     fiscal del gobierno, o un estado de cuenta bancario del negocio
+   - Meta puede pedir un documento adicional según el país — sigue lo que te muestre el flujo
+
+10.- Acceso a la Ad Library API (para que funcione el análisis de competencia):
+   - Panel de tu app → Agregar producto → busca "Ads Library API" y agrégalo
+   - Te va a pedir una descripción del caso de uso, cómo manejas los datos, y que confirmes
+     que no revendes los datos ni los usas para segmentar anuncios — usa el texto de
+     "Ad Library / competencia" de la sección de abajo
+   - Sube una grabación de pantalla: agregar un competidor en el panel del negocio → ver los
+     anuncios activos que trae la Ad Library
+   - Necesita el paso 9 (Business Verification) ya aprobado
+
+11.- App Review para los permisos avanzados (para publicar/pautar en cuentas de clientes,
+    no solo en la tuya propia):
+   - App Review → Permisos y funciones → busca y pide cada uno: pages_manage_posts,
+     pages_read_engagement, instagram_basic, business_management, ads_management
+   - Por cada permiso: pega el texto de caso de uso correspondiente (abajo) y sube una
+     grabación de pantalla mostrando exactamente ese permiso en acción en la app corriendo
+     (npm run dev)
+   - Mientras no esté aprobado, la app solo funciona con cuentas que tengan un rol asignado
+     en el dashboard (Roles de la app → Agregar personas) — así ya puedes usarla hoy contigo
+     mismo y con clientes de prueba que agregues ahí, sin esperar la aprobación
+
+## Casos de uso para App Review (copiar y pegar en el formulario de Meta, ajustar si hace falta)
+
+**pages_manage_posts**
+AI Growth OS genera contenido de marketing (imagen + texto) a partir de instrucciones del
+propio dueño del negocio. Cuando el usuario revisa esa pieza en la página de la campaña y hace
+clic en "Publicar en Facebook", la app publica esa foto con su descripción en la Página de
+Facebook que el usuario administra y eligió de una lista de sus propias Páginas. Nunca se
+publica automáticamente ni sin ese clic explícito.
+
+**pages_read_engagement**
+Se usa para mostrarle al dueño del negocio el rendimiento real de sus propias publicaciones
+(compartidos, y likes/comentarios cuando el permiso lo permite) en un panel de "oportunidades",
+para recomendar qué contenido repetir. Solo lee datos de las Páginas que el propio usuario
+administra y conectó.
+
+**instagram_basic**
+Se usa para leer las publicaciones recientes, seguidores y métricas (likes, comentarios) de la
+cuenta profesional de Instagram vinculada a la Página de Facebook que administra el usuario, y
+mostrarlas en su panel de rendimiento.
+
+**business_management**
+Se usa para listar las Páginas de Facebook y cuentas publicitarias que el usuario administra en
+su Business Manager, para que elija cuál conectar a su negocio dentro de la app.
+
+**ads_management**
+Cuando el dueño del negocio ya publicó una pieza de contenido de forma orgánica y quiere
+convertirla en anuncio pagado, hace clic en "Crear campaña en Meta Ads" e ingresa un presupuesto
+diario. La app crea una campaña, conjunto de anuncios y anuncio en su cuenta publicitaria,
+siempre en estado PAUSADO. El usuario tiene que hacer clic explícitamente en "Activar" para que
+empiece a gastar, y puede pausarla o subir el presupuesto cuando quiera — ninguna de estas
+acciones ocurre de forma automática.
+
+**Ad Library / competencia**
+El usuario registra el nombre de un competidor de su rubro. La app consulta la Ad Library
+pública de Meta (ads_archive) con ese nombre como término de búsqueda y muestra los anuncios
+actualmente activos de ese competidor (texto del anuncio y enlace a su vista pública). No
+almacenamos ni redistribuimos esos datos más allá de mostrarlos en el panel del propio usuario,
+no los usamos para segmentar anuncios propios ni de terceros, y no los vendemos.

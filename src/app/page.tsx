@@ -48,6 +48,13 @@ export default async function Home() {
           </ul>
         </section>
       )}
+
+      <Link
+        href="/privacy"
+        className="mt-auto pt-14 text-sm text-neutral-500 underline hover:text-neutral-800 dark:hover:text-neutral-200"
+      >
+        Política de privacidad
+      </Link>
     </main>
   );
 }
