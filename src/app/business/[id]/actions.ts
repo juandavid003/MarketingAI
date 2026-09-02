@@ -5,9 +5,10 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { encryptSecret, decryptSecret } from "@/lib/crypto";
 import { generateCampaign, generateStoryboard, generateImagePrompt, type AiProvider, type GeneratedCampaign } from "@/lib/ai";
-import { fetchPages } from "@/lib/meta";
+import { fetchPages, publishPagePhoto } from "@/lib/meta";
 import { generateImage } from "@/lib/images";
-import { mkdir, writeFile } from "fs/promises";
+import { generatePlaceholderImage } from "@/lib/placeholderImage";
+import { mkdir, writeFile, readFile } from "fs/promises";
 import path from "path";
 
 // Image generation (GPT Image) is OpenAI-only. If the business already uses
@@ -387,14 +388,11 @@ export async function createCampaignImage(
     );
   }
 
+  // Real AI image generation (GPT Image) requires OpenAI specifically. When
+  // no OpenAI image key is configured, fall back to a local text-on-background
+  // placeholder (via ffmpeg) so the rest of the pipeline (review → publish)
+  // can still be exercised — clearly marked as such, never passed off as AI.
   const openaiImageKeyEncrypted = resolveOpenAiImageKeyEncrypted(business);
-  if (!openaiImageKeyEncrypted) {
-    redirect(
-      `/business/${businessId}/settings?campaign_error=${encodeURIComponent(
-        "Configura tu API key de OpenAI para generar imágenes antes de continuar."
-      )}`
-    );
-  }
 
   let campaignContent: GeneratedCampaign;
   try {
@@ -437,14 +435,26 @@ export async function createCampaignImage(
       formato: item.formato,
     });
 
-    const imageApiKey = decryptSecret(openaiImageKeyEncrypted);
-    const imageBuffer = await generateImage(imageApiKey, imagePrompt);
-
     const dir = path.join(process.cwd(), "public", "uploads", businessId, "campaign-images");
     await mkdir(dir, { recursive: true });
     const filename = `${campaignId}-${contentIndex}-${Date.now()}.png`;
-    await writeFile(path.join(dir, filename), imageBuffer);
+    const diskPath = path.join(dir, filename);
     const imagePublicPath = `/uploads/${businessId}/campaign-images/${filename}`;
+
+    let provider: string;
+    let model: string;
+
+    if (openaiImageKeyEncrypted) {
+      const imageApiKey = decryptSecret(openaiImageKeyEncrypted);
+      const imageBuffer = await generateImage(imageApiKey, imagePrompt);
+      await writeFile(diskPath, imageBuffer);
+      provider = "openai";
+      model = "gpt-image-2";
+    } else {
+      await generatePlaceholderImage(`${item.hook}\n\n${campaignContent.oferta}`, diskPath);
+      provider = "placeholder";
+      model = "ffmpeg-drawtext";
+    }
 
     await prisma.campaignImage.create({
       data: {
@@ -452,13 +462,104 @@ export async function createCampaignImage(
         contentIndex,
         prompt: imagePrompt,
         imagePath: imagePublicPath,
-        provider: "openai",
-        model: "gpt-image-2",
+        provider,
+        model,
       },
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Error al generar la imagen.";
     redirect(`/business/${businessId}/campaigns/${campaignId}?image_error=${encodeURIComponent(message)}`);
+  }
+
+  redirect(`/business/${businessId}/campaigns/${campaignId}`);
+}
+
+export async function publishCampaignImage(
+  businessId: string,
+  campaignId: string,
+  contentIndex: number,
+  formData: FormData
+) {
+  const facebookPageId = formData.get("pageId");
+  if (typeof facebookPageId !== "string" || facebookPageId.length === 0) {
+    redirect(
+      `/business/${businessId}/campaigns/${campaignId}?publish_error=${encodeURIComponent(
+        "Selecciona una página para publicar."
+      )}`
+    );
+  }
+
+  const [campaign, page] = await Promise.all([
+    prisma.campaign.findUnique({
+      where: { id: campaignId },
+      include: { images: { where: { contentIndex } } },
+    }),
+    prisma.socialPage.findFirst({
+      where: { facebookPageId, connection: { businessId } },
+    }),
+  ]);
+
+  if (!campaign || campaign.businessId !== businessId) {
+    redirect(`/business/${businessId}`);
+  }
+  if (!page) {
+    redirect(
+      `/business/${businessId}/campaigns/${campaignId}?publish_error=${encodeURIComponent(
+        "No se encontró esa página conectada."
+      )}`
+    );
+  }
+
+  const image = campaign.images[0];
+  if (!image) {
+    redirect(
+      `/business/${businessId}/campaigns/${campaignId}?publish_error=${encodeURIComponent(
+        "Genera una imagen para esta pieza antes de publicar."
+      )}`
+    );
+  }
+
+  let campaignContent: GeneratedCampaign;
+  try {
+    campaignContent = JSON.parse(campaign.content) as GeneratedCampaign;
+  } catch {
+    redirect(
+      `/business/${businessId}/campaigns/${campaignId}?publish_error=${encodeURIComponent(
+        "No se pudo leer el contenido de esta campaña."
+      )}`
+    );
+  }
+
+  const item = campaignContent.contenido[contentIndex];
+  const caption = [item?.hook, campaignContent.oferta, campaignContent.cta]
+    .filter(Boolean)
+    .join("\n\n");
+
+  try {
+    const imageDiskPath = path.join(process.cwd(), "public", image.imagePath);
+    const imageBuffer = await readFile(imageDiskPath);
+
+    const { postId, permalinkUrl } = await publishPagePhoto(
+      page.facebookPageId,
+      page.pageAccessToken,
+      imageBuffer,
+      caption
+    );
+
+    await prisma.publishedPost.create({
+      data: {
+        campaignId,
+        contentIndex,
+        facebookPageId: page.facebookPageId,
+        pageName: page.name,
+        facebookPostId: postId,
+        permalinkUrl,
+        message: caption,
+      },
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Error al publicar en Facebook.";
+    redirect(`/business/${businessId}/campaigns/${campaignId}?publish_error=${encodeURIComponent(message)}`);
   }
 
   redirect(`/business/${businessId}/campaigns/${campaignId}`);

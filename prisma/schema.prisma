@@ -13,23 +13,23 @@ datasource db {
 }
 
 model Business {
-  id              String   @id @default(cuid())
-  name            String
-  industry        String
-  description     String
-  targetAudience  String
-  location        String
-  avgTicket       Float?
-  objective       String
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(cuid())
+  name           String
+  industry       String
+  description    String
+  targetAudience String
+  location       String
+  avgTicket      Float?
+  objective      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   // AI provider chosen by this business's owner, with their own API key
   // (encrypted, see lib/crypto.ts) — never a key belonging to the platform.
-  aiProvider          String?
-  aiApiKeyEncrypted   String?
-  aiModel             String?
-  aiConfiguredAt      DateTime?
+  aiProvider        String?
+  aiApiKeyEncrypted String?
+  aiModel           String?
+  aiConfiguredAt    DateTime?
 
   // Separate from aiApiKeyEncrypted: transcription (Whisper) is only offered
   // by OpenAI, regardless of which provider is chosen for text generation.
@@ -47,19 +47,33 @@ model Business {
 }
 
 model Campaign {
-  id             String   @id @default(cuid())
-  business       Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  businessId     String
-  title          String
-  sourceInsight  String
-  provider       String
-  model          String
-  content        String
-  status         String   @default("draft")
-  createdAt      DateTime @default(now())
+  id            String   @id @default(cuid())
+  business      Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId    String
+  title         String
+  sourceInsight String
+  provider      String
+  model         String
+  content       String
+  status        String   @default("draft")
+  createdAt     DateTime @default(now())
 
-  storyboards Storyboard[]
-  images      CampaignImage[]
+  storyboards    Storyboard[]
+  images         CampaignImage[]
+  publishedPosts PublishedPost[]
+}
+
+model PublishedPost {
+  id             String   @id @default(cuid())
+  campaign       Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaignId     String
+  contentIndex   Int
+  facebookPageId String
+  pageName       String
+  facebookPostId String
+  permalinkUrl   String?
+  message        String
+  createdAt      DateTime @default(now())
 }
 
 model CampaignImage {
@@ -140,15 +154,15 @@ model SocialConnection {
 }
 
 model SocialPage {
-  id                  String           @id @default(cuid())
-  connection          SocialConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
-  connectionId        String
-  facebookPageId      String
-  name                String
-  pageAccessToken     String
-  instagramAccountId  String?
-  instagramUsername   String?
-  createdAt           DateTime         @default(now())
+  id                 String           @id @default(cuid())
+  connection         SocialConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  connectionId       String
+  facebookPageId     String
+  name               String
+  pageAccessToken    String
+  instagramAccountId String?
+  instagramUsername  String?
+  createdAt          DateTime         @default(now())
 
   @@unique([connectionId, facebookPageId])
 }
