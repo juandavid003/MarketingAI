@@ -207,6 +207,51 @@ export async function publishPagePhoto(
   return { postId, permalinkUrl };
 }
 
+export type PublishVideoResult = {
+  videoId: string;
+  permalinkUrl: string | null;
+};
+
+// Same direct multipart upload as publishPagePhoto — fine for the short
+// vertical clips this app produces. Larger files would need the resumable
+// upload session API (start/transfer/finish) instead of this single POST.
+export async function publishPageVideo(
+  pageId: string,
+  pageAccessToken: string,
+  videoBuffer: Buffer,
+  caption: string
+): Promise<PublishVideoResult> {
+  const form = new FormData();
+  form.append("source", new Blob([new Uint8Array(videoBuffer)]), "video.mp4");
+  form.append("description", caption);
+  form.append("access_token", pageAccessToken);
+
+  const res = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${pageId}/videos`, {
+    method: "POST",
+    body: form,
+  });
+  const json = await res.json();
+  if (!res.ok) {
+    const message = json?.error?.message ?? JSON.stringify(json);
+    throw new Error(`Meta Graph API error (/${pageId}/videos): ${message}`);
+  }
+
+  const videoId: string = json.id;
+
+  let permalinkUrl: string | null = null;
+  try {
+    const details = await graphGet<{ permalink_url?: string }>(`/${videoId}`, {
+      access_token: pageAccessToken,
+      fields: "permalink_url",
+    });
+    permalinkUrl = details.permalink_url ?? null;
+  } catch {
+    // Non-fatal: the upload succeeded even if we couldn't resolve its permalink.
+  }
+
+  return { videoId, permalinkUrl };
+}
+
 export type PostEngagement = {
   shares: number;
   likes: number | null;

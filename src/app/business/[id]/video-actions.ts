@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID } from "crypto";
-import { mkdir, writeFile } from "fs/promises";
+import { mkdir, writeFile, readFile } from "fs/promises";
 import path from "path";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -9,6 +9,7 @@ import { decryptSecret } from "@/lib/crypto";
 import { analyzeVideoTranscript, type AiProvider } from "@/lib/ai";
 import { transcribeVideo, generateSrt } from "@/lib/whisper";
 import { getDurationSeconds, extractAudio, renderVerticalClip, extractThumbnail } from "@/lib/video";
+import { publishPageVideo } from "@/lib/meta";
 
 const UPLOADS_ROOT = path.join(process.cwd(), "public", "uploads");
 
@@ -142,6 +143,70 @@ export async function uploadAndProcessVideo(
       where: { id: videoAssetId },
       data: { status: "error", errorMessage: message },
     });
+  }
+
+  redirect(`/business/${businessId}/videos/${videoAssetId}`);
+}
+
+export async function publishVideoVersion(
+  businessId: string,
+  videoAssetId: string,
+  versionId: string,
+  formData: FormData
+) {
+  const facebookPageId = formData.get("pageId");
+  if (typeof facebookPageId !== "string" || facebookPageId.length === 0) {
+    redirect(
+      `/business/${businessId}/videos/${videoAssetId}?publish_error=${encodeURIComponent(
+        "Selecciona una página para publicar."
+      )}`
+    );
+  }
+
+  const [version, page] = await Promise.all([
+    prisma.videoVersion.findUnique({ where: { id: versionId } }),
+    prisma.socialPage.findFirst({
+      where: { facebookPageId, connection: { businessId } },
+    }),
+  ]);
+
+  if (!version || version.videoAssetId !== videoAssetId) {
+    redirect(`/business/${businessId}/videos/${videoAssetId}`);
+  }
+  if (!page) {
+    redirect(
+      `/business/${businessId}/videos/${videoAssetId}?publish_error=${encodeURIComponent(
+        "No se encontró esa página conectada."
+      )}`
+    );
+  }
+
+  const caption = [version.hook, version.cta].filter(Boolean).join("\n\n");
+
+  try {
+    const videoDiskPath = path.join(process.cwd(), "public", version.outputPath);
+    const videoBuffer = await readFile(videoDiskPath);
+
+    const { videoId, permalinkUrl } = await publishPageVideo(
+      page.facebookPageId,
+      page.pageAccessToken,
+      videoBuffer,
+      caption
+    );
+
+    await prisma.publishedVideo.create({
+      data: {
+        videoVersionId: versionId,
+        facebookPageId: page.facebookPageId,
+        pageName: page.name,
+        facebookVideoId: videoId,
+        permalinkUrl,
+        message: caption,
+      },
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Error al publicar el video en Facebook.";
+    redirect(`/business/${businessId}/videos/${videoAssetId}?publish_error=${encodeURIComponent(message)}`);
   }
 
   redirect(`/business/${businessId}/videos/${videoAssetId}`);

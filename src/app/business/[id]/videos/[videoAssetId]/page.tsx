@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import type { Transcript } from "@/lib/whisper";
+import { publishVideoVersion } from "../../video-actions";
 
 const STATUS_LABEL: Record<string, string> = {
   uploaded: "Subido, preparando...",
@@ -14,19 +15,35 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default async function VideoAssetPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string; videoAssetId: string }>;
+  searchParams: Promise<{ publish_error?: string }>;
 }) {
   const { id, videoAssetId } = await params;
+  const { publish_error: publishError } = await searchParams;
 
-  const video = await prisma.videoAsset.findUnique({
-    where: { id: videoAssetId },
-    include: { versions: { orderBy: { createdAt: "asc" } } },
-  });
+  const [video, business] = await Promise.all([
+    prisma.videoAsset.findUnique({
+      where: { id: videoAssetId },
+      include: {
+        versions: {
+          orderBy: { createdAt: "asc" },
+          include: { publishedVideos: { orderBy: { createdAt: "desc" } } },
+        },
+      },
+    }),
+    prisma.business.findUnique({
+      where: { id },
+      include: { socialConnection: { include: { pages: true } } },
+    }),
+  ]);
 
-  if (!video || video.businessId !== id) {
+  if (!video || video.businessId !== id || !business) {
     notFound();
   }
+
+  const pages = business.socialConnection?.pages ?? [];
 
   let transcript: Transcript | null = null;
   if (video.transcript) {
@@ -72,6 +89,11 @@ export default async function VideoAssetPage({
       {video.status === "error" && video.errorMessage && (
         <p className="mt-4 rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
           {video.errorMessage}
+        </p>
+      )}
+      {publishError && (
+        <p className="mt-4 rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+          No se pudo publicar: {publishError}
         </p>
       )}
 
@@ -122,6 +144,54 @@ export default async function VideoAssetPage({
                 Descargar clip
               </a>
             </div>
+          </div>
+
+          <div className="mt-3 border-t border-neutral-200 pt-3 dark:border-neutral-800">
+            {version.publishedVideos[0] ? (
+              <p className="text-sm">
+                ✅ Publicado en {version.publishedVideos[0].pageName}
+                {version.publishedVideos[0].permalinkUrl && (
+                  <>
+                    {" · "}
+                    <a
+                      href={version.publishedVideos[0].permalinkUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
+                    >
+                      Ver publicación
+                    </a>
+                  </>
+                )}
+              </p>
+            ) : pages.length > 0 ? (
+              <form
+                action={publishVideoVersion.bind(null, id, videoAssetId, version.id)}
+                className="flex flex-wrap items-center gap-2"
+              >
+                <select
+                  name="pageId"
+                  required
+                  className="rounded-md border border-neutral-300 bg-transparent px-2 py-1.5 text-sm dark:border-neutral-700"
+                >
+                  {pages.map((page) => (
+                    <option key={page.id} value={page.facebookPageId}>
+                      {page.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="submit"
+                  className="rounded-md bg-black px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200"
+                >
+                  Publicar en Facebook
+                </button>
+              </form>
+            ) : (
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                Conecta una página de Facebook para poder publicar.
+              </p>
+            )}
           </div>
         </div>
       ))}

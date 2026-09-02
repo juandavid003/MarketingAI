@@ -128,6 +128,20 @@ model VideoVersion {
   startSeconds  Float
   endSeconds    Float
   createdAt     DateTime   @default(now())
+
+  publishedVideos PublishedVideo[]
+}
+
+model PublishedVideo {
+  id              String       @id @default(cuid())
+  videoVersion    VideoVersion @relation(fields: [videoVersionId], references: [id], onDelete: Cascade)
+  videoVersionId  String
+  facebookPageId  String
+  pageName        String
+  facebookVideoId String
+  permalinkUrl    String?
+  message         String
+  createdAt       DateTime     @default(now())
 }
 
 model Product {
