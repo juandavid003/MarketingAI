@@ -61,6 +61,7 @@ model Campaign {
   storyboards    Storyboard[]
   images         CampaignImage[]
   publishedPosts PublishedPost[]
+  adCampaigns    AdCampaign[]
 }
 
 model PublishedPost {
@@ -74,6 +75,27 @@ model PublishedPost {
   permalinkUrl   String?
   message        String
   createdAt      DateTime @default(now())
+}
+
+// Boosts an already-published organic post (see PublishedPost) into a paid
+// campaign via object_story_id — no separate creative/image upload needed.
+// Every row here always starts (and is created in Meta as) PAUSED; only an
+// explicit activateAdCampaign() call flips it to ACTIVE. Never auto-activated.
+model AdCampaign {
+  id               String   @id @default(cuid())
+  campaign         Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaignId       String
+  contentIndex     Int
+  metaCampaignId   String
+  metaAdSetId      String
+  metaAdId         String
+  metaCreativeId   String
+  dailyBudgetCents Int
+  status           String   @default("paused") // paused | active
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([campaignId, contentIndex])
 }
 
 model CampaignImage {
@@ -164,7 +186,21 @@ model SocialConnection {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  pages SocialPage[]
+  pages     SocialPage[]
+  adAccount MetaAdAccount?
+}
+
+// A business connects at most one ad account — matches SocialConnection
+// being 1:1 with Business today. ads_management calls (see lib/meta.ts) use
+// SocialConnection.accessToken (the user token), not a page token.
+model MetaAdAccount {
+  id           String           @id @default(cuid())
+  connection   SocialConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  connectionId String           @unique
+  adAccountId  String // e.g. "act_123456789"
+  name         String
+  currency     String
+  createdAt    DateTime         @default(now())
 }
 
 model SocialPage {

@@ -5,23 +5,35 @@ import { OBJECTIVES } from "@/lib/constants";
 import { generateInsights, type Insight } from "@/lib/insights";
 import { getPageActivity, type PageActivity } from "@/lib/pageActivity";
 import { generateRealInsights } from "@/lib/realInsights";
+import { fetchAdAccounts, type AdAccount } from "@/lib/meta";
 import { disconnectMeta, refreshPages, createCampaign, createCampaignFromObjective } from "./actions";
+import { connectAdAccount } from "./ads-actions";
 
 export default async function BusinessProfilePage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ connected?: string; meta_error?: string; campaign_error?: string }>;
+  searchParams: Promise<{
+    connected?: string;
+    meta_error?: string;
+    campaign_error?: string;
+    ad_error?: string;
+  }>;
 }) {
   const { id } = await params;
-  const { connected, meta_error: metaError, campaign_error: campaignError } = await searchParams;
+  const {
+    connected,
+    meta_error: metaError,
+    campaign_error: campaignError,
+    ad_error: adError,
+  } = await searchParams;
 
   const business = await prisma.business.findUnique({
     where: { id },
     include: {
       products: true,
-      socialConnection: { include: { pages: true } },
+      socialConnection: { include: { pages: true, adAccount: true } },
       campaigns: { orderBy: { createdAt: "desc" } },
       videoAssets: { orderBy: { createdAt: "desc" } },
     },
@@ -29,6 +41,17 @@ export default async function BusinessProfilePage({
 
   if (!business) {
     notFound();
+  }
+
+  let availableAdAccounts: AdAccount[] = [];
+  let adAccountsError: string | null = null;
+  if (business.socialConnection && !business.socialConnection.adAccount) {
+    try {
+      availableAdAccounts = await fetchAdAccounts(business.socialConnection.accessToken);
+    } catch (err) {
+      adAccountsError =
+        err instanceof Error ? err.message : "No se pudieron leer las cuentas publicitarias.";
+    }
   }
 
   const objectiveLabel =
@@ -64,8 +87,22 @@ export default async function BusinessProfilePage({
           No se pudo crear la campaña: {campaignError}
         </p>
       )}
+      {adError && (
+        <p className="mt-4 rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+          {adError}
+        </p>
+      )}
 
       <ConnectionCard business={business} />
+
+      {business.socialConnection && (
+        <AdAccountCard
+          businessId={business.id}
+          adAccount={business.socialConnection.adAccount}
+          availableAccounts={availableAdAccounts}
+          error={adAccountsError}
+        />
+      )}
       <AiSettingsCard businessId={business.id} provider={business.aiProvider} />
 
       {pageActivity.length > 0 && <PageActivitySection activity={pageActivity} />}
@@ -350,6 +387,71 @@ function ConnectionCard({
             </li>
           ))}
         </ul>
+      )}
+    </div>
+  );
+}
+
+function AdAccountCard({
+  businessId,
+  adAccount,
+  availableAccounts,
+  error,
+}: {
+  businessId: string;
+  adAccount: { adAccountId: string; name: string; currency: string } | null;
+  availableAccounts: AdAccount[];
+  error: string | null;
+}) {
+  if (adAccount) {
+    return (
+      <div className="mt-4 rounded-lg border border-neutral-200 p-5 dark:border-neutral-800">
+        <p className="font-medium">🎯 Cuenta publicitaria: {adAccount.name}</p>
+        <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+          Moneda: {adAccount.currency}. Las campañas que crees empiezan pausadas — tú decides
+          cuándo activarlas.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-4 rounded-lg border border-neutral-200 p-5 dark:border-neutral-800">
+      <p className="font-medium">Conecta tu cuenta publicitaria de Meta</p>
+      <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+        Necesario para poder pautar (con presupuesto) las publicaciones que ya funcionan bien.
+      </p>
+
+      {error && (
+        <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>
+      )}
+
+      {!error && availableAccounts.length === 0 && (
+        <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
+          No encontramos cuentas publicitarias administradas por esta cuenta de Meta.
+        </p>
+      )}
+
+      {availableAccounts.length > 0 && (
+        <form action={connectAdAccount.bind(null, businessId)} className="mt-3 flex flex-wrap items-center gap-2">
+          <select
+            name="adAccountId"
+            required
+            className="rounded-md border border-neutral-300 bg-transparent px-2 py-1.5 text-sm dark:border-neutral-700"
+          >
+            {availableAccounts.map((account) => (
+              <option key={account.id} value={account.id}>
+                {account.name} ({account.currency})
+              </option>
+            ))}
+          </select>
+          <button
+            type="submit"
+            className="rounded-md bg-black px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200"
+          >
+            Conectar
+          </button>
+        </form>
       )}
     </div>
   );

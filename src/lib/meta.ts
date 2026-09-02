@@ -16,12 +16,18 @@ function requireEnv(name: string): string {
 // account actually administers (Standard Access) — that covers our own
 // testing, but a business publishing to a Page it doesn't admin would need
 // Advanced Access.
+//
+// ads_management lets us create/pause/activate campaigns and change budgets
+// on ad accounts the connecting user administers (Standard Access, same deal
+// as pages_manage_posts) — a business running ads through someone else's ad
+// account would need Advanced Access + Business Verification.
 export const META_SCOPES = [
   "pages_show_list",
   "pages_read_engagement",
   "pages_manage_posts",
   "business_management",
   "instagram_basic",
+  "ads_management",
 ].join(",");
 
 export function buildMetaAuthUrl(state: string): string {
@@ -46,6 +52,19 @@ async function graphGet<T>(path: string, params: Record<string, string>): Promis
     url.searchParams.set(key, value);
   }
   const res = await fetch(url.toString());
+  const json = await res.json();
+  if (!res.ok) {
+    const message = json?.error?.message ?? JSON.stringify(json);
+    throw new Error(`Meta Graph API error (${path}): ${message}`);
+  }
+  return json as T;
+}
+
+async function graphPost<T>(path: string, params: Record<string, string>): Promise<T> {
+  const res = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}${path}`, {
+    method: "POST",
+    body: new URLSearchParams(params),
+  });
   const json = await res.json();
   if (!res.ok) {
     const message = json?.error?.message ?? JSON.stringify(json);
@@ -288,4 +307,189 @@ export async function fetchPostEngagement(
   }
 
   return { shares: base.shares?.count ?? 0, likes, comments };
+}
+
+// ---------------------------------------------------------------------------
+// Marketing API (Meta Ads). Everything this app creates here starts PAUSED —
+// setAdSetStatus/setAdStatus are the only calls that can turn spend on, and
+// they're only ever invoked from an explicit user click (see
+// activateAdCampaign in ads-actions.ts), never automatically.
+// ---------------------------------------------------------------------------
+
+export type AdAccount = {
+  id: string; // "act_123456789"
+  name: string;
+  currency: string;
+  account_status: number;
+};
+
+export async function fetchAdAccounts(accessToken: string): Promise<AdAccount[]> {
+  const json = await graphGet<{ data: AdAccount[] }>("/me/adaccounts", {
+    access_token: accessToken,
+    fields: "id,name,currency,account_status",
+  });
+  return json.data;
+}
+
+export type AdGeoLocation = {
+  key: string;
+  type: string; // "city" | "region" | "country" | ...
+  name: string;
+  country_code?: string;
+};
+
+// Ad targeting needs a Meta geo key, not free text — resolves business.location
+// (e.g. "Quito, Ecuador") to the most specific match Meta's own search returns.
+export async function searchAdGeoLocation(
+  accessToken: string,
+  query: string
+): Promise<AdGeoLocation | null> {
+  const json = await graphGet<{ data: AdGeoLocation[] }>("/search", {
+    access_token: accessToken,
+    type: "adgeolocation",
+    location_types: JSON.stringify(["city", "region", "country"]),
+    q: query,
+  });
+  return json.data[0] ?? null;
+}
+
+export type AdGeoTargeting =
+  | { cities: { key: string; radius: number; distance_unit: "kilometer" }[] }
+  | { regions: { key: string }[] }
+  | { countries: string[] };
+
+export function buildGeoTargeting(location: AdGeoLocation): AdGeoTargeting {
+  if (location.type === "city") {
+    return { cities: [{ key: location.key, radius: 25, distance_unit: "kilometer" }] };
+  }
+  if (location.type === "region") {
+    return { regions: [{ key: location.key }] };
+  }
+  return { countries: [location.country_code ?? location.key] };
+}
+
+export async function createAdCampaign(
+  adAccountId: string,
+  accessToken: string,
+  name: string
+): Promise<string> {
+  const json = await graphPost<{ id: string }>(`/${adAccountId}/campaigns`, {
+    access_token: accessToken,
+    name,
+    objective: "OUTCOME_ENGAGEMENT",
+    status: "PAUSED",
+    special_ad_categories: JSON.stringify([]),
+  });
+  return json.id;
+}
+
+// POST_ENGAGEMENT/IMPRESSIONS needs no pixel or lead form set up, so it works
+// for any business regardless of whether they have a website — trades off
+// against being a less sales-focused objective than OUTCOME_SALES/LEADS.
+export async function createAdSet(
+  adAccountId: string,
+  accessToken: string,
+  params: { name: string; campaignId: string; dailyBudgetCents: number; geoTargeting: AdGeoTargeting }
+): Promise<string> {
+  const json = await graphPost<{ id: string }>(`/${adAccountId}/adsets`, {
+    access_token: accessToken,
+    name: params.name,
+    campaign_id: params.campaignId,
+    daily_budget: String(params.dailyBudgetCents),
+    billing_event: "IMPRESSIONS",
+    optimization_goal: "POST_ENGAGEMENT",
+    bid_strategy: "LOWEST_COST_WITHOUT_CAP",
+    targeting: JSON.stringify({ age_min: 18, age_max: 65, geo_locations: params.geoTargeting }),
+    status: "PAUSED",
+  });
+  return json.id;
+}
+
+// Reuses the already-published organic post as the ad creative (a "boost")
+// via object_story_id, instead of re-uploading the image — see PublishedPost.
+export async function createAdCreativeFromPost(
+  adAccountId: string,
+  accessToken: string,
+  pageId: string,
+  facebookPostId: string,
+  name: string
+): Promise<string> {
+  const objectStoryId = facebookPostId.includes("_") ? facebookPostId : `${pageId}_${facebookPostId}`;
+  const json = await graphPost<{ id: string }>(`/${adAccountId}/adcreatives`, {
+    access_token: accessToken,
+    name,
+    object_story_id: objectStoryId,
+  });
+  return json.id;
+}
+
+export async function createAd(
+  adAccountId: string,
+  accessToken: string,
+  params: { name: string; adSetId: string; creativeId: string }
+): Promise<string> {
+  const json = await graphPost<{ id: string }>(`/${adAccountId}/ads`, {
+    access_token: accessToken,
+    name: params.name,
+    adset_id: params.adSetId,
+    creative: JSON.stringify({ creative_id: params.creativeId }),
+    status: "PAUSED",
+  });
+  return json.id;
+}
+
+export async function setAdSetStatus(
+  adSetId: string,
+  accessToken: string,
+  status: "ACTIVE" | "PAUSED"
+): Promise<void> {
+  await graphPost(`/${adSetId}`, { access_token: accessToken, status });
+}
+
+export async function setAdStatus(
+  adId: string,
+  accessToken: string,
+  status: "ACTIVE" | "PAUSED"
+): Promise<void> {
+  await graphPost(`/${adId}`, { access_token: accessToken, status });
+}
+
+export async function updateAdSetDailyBudget(
+  adSetId: string,
+  accessToken: string,
+  dailyBudgetCents: number
+): Promise<void> {
+  await graphPost(`/${adSetId}`, { access_token: accessToken, daily_budget: String(dailyBudgetCents) });
+}
+
+export type AdSetInsights = {
+  spend: number;
+  impressions: number;
+  clicks: number;
+  ctr: number | null;
+  cpc: number | null;
+};
+
+export async function fetchAdSetInsights(
+  adSetId: string,
+  accessToken: string
+): Promise<AdSetInsights | null> {
+  const json = await graphGet<{
+    data: { spend?: string; impressions?: string; clicks?: string; ctr?: string; cpc?: string }[];
+  }>(`/${adSetId}/insights`, {
+    access_token: accessToken,
+    fields: "spend,impressions,clicks,ctr,cpc",
+    date_preset: "last_7d",
+  });
+
+  const row = json.data[0];
+  if (!row) return null;
+
+  return {
+    spend: Number(row.spend ?? 0),
+    impressions: Number(row.impressions ?? 0),
+    clicks: Number(row.clicks ?? 0),
+    ctr: row.ctr != null ? Number(row.ctr) : null,
+    cpc: row.cpc != null ? Number(row.cpc) : null,
+  };
 }

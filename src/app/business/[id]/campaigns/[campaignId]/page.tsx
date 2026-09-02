@@ -4,24 +4,33 @@ import Image from "next/image";
 import { prisma } from "@/lib/prisma";
 import type { GeneratedCampaign } from "@/lib/ai";
 import { createStoryboard, createCampaignImage, publishCampaignImage } from "../../actions";
+import { launchAdCampaign, activateAdCampaign, pauseAdCampaign, updateAdBudget } from "../../ads-actions";
+import { fetchAdSetInsights, type AdSetInsights } from "@/lib/meta";
 import {
   getCampaignPerformance,
   findPerformanceHighlight,
   type PublishedPostPerformance,
 } from "@/lib/campaignPerformance";
+import type { AdCampaign } from "@/generated/prisma/client";
 
 export default async function CampaignPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string; campaignId: string }>;
-  searchParams: Promise<{ storyboard_error?: string; image_error?: string; publish_error?: string }>;
+  searchParams: Promise<{
+    storyboard_error?: string;
+    image_error?: string;
+    publish_error?: string;
+    ad_error?: string;
+  }>;
 }) {
   const { id, campaignId } = await params;
   const {
     storyboard_error: storyboardError,
     image_error: imageError,
     publish_error: publishError,
+    ad_error: adError,
   } = await searchParams;
 
   const [campaign, business] = await Promise.all([
@@ -31,11 +40,12 @@ export default async function CampaignPage({
         storyboards: { orderBy: { createdAt: "desc" } },
         images: { orderBy: { createdAt: "desc" } },
         publishedPosts: { orderBy: { createdAt: "desc" } },
+        adCampaigns: true,
       },
     }),
     prisma.business.findUnique({
       where: { id },
-      include: { socialConnection: { include: { pages: true } } },
+      include: { socialConnection: { include: { pages: true, adAccount: true } } },
     }),
   ]);
 
@@ -61,6 +71,23 @@ export default async function CampaignPage({
       : [];
   const performanceByIndex = new Map(performance.map((p) => [p.contentIndex, p]));
   const highlight = findPerformanceHighlight(performance);
+
+  const adAccount = business.socialConnection?.adAccount ?? null;
+  const adCampaignByIndex = new Map(campaign.adCampaigns.map((ac) => [ac.contentIndex, ac]));
+  const activeAdCampaigns = campaign.adCampaigns.filter((ac) => ac.status === "active");
+  const adInsightsById = new Map<string, AdSetInsights | null>();
+  if (activeAdCampaigns.length > 0 && business.socialConnection) {
+    const accessToken = business.socialConnection.accessToken;
+    await Promise.all(
+      activeAdCampaigns.map(async (ac) => {
+        try {
+          adInsightsById.set(ac.id, await fetchAdSetInsights(ac.metaAdSetId, accessToken));
+        } catch {
+          adInsightsById.set(ac.id, null);
+        }
+      })
+    );
+  }
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-16">
@@ -92,6 +119,11 @@ export default async function CampaignPage({
       {publishError && (
         <p className="mt-4 rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
           No se pudo publicar: {publishError}
+        </p>
+      )}
+      {adError && (
+        <p className="mt-4 rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+          {adError}
         </p>
       )}
 
@@ -126,6 +158,7 @@ export default async function CampaignPage({
               const image = imageByIndex.get(i);
               const published = publishedByIndex.get(i);
               const piecePerformance = performanceByIndex.get(i);
+              const adCampaign = adCampaignByIndex.get(i);
               return (
                 <div key={i} className="rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
                   <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">{item.formato}</p>
@@ -231,6 +264,17 @@ export default async function CampaignPage({
                       )}
                     </div>
                   )}
+
+                  {published && (
+                    <AdsSection
+                      businessId={id}
+                      campaignId={campaignId}
+                      contentIndex={i}
+                      adAccount={adAccount}
+                      adCampaign={adCampaign ?? null}
+                      insights={adCampaign ? (adInsightsById.get(adCampaign.id) ?? null) : null}
+                    />
+                  )}
                 </div>
               );
             })}
@@ -259,6 +303,119 @@ function PerformanceLine({ performance }: { performance: PublishedPostPerformanc
 
   return (
     <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{parts.join(" · ")}</p>
+  );
+}
+
+function AdsSection({
+  businessId,
+  campaignId,
+  contentIndex,
+  adAccount,
+  adCampaign,
+  insights,
+}: {
+  businessId: string;
+  campaignId: string;
+  contentIndex: number;
+  adAccount: { adAccountId: string; name: string; currency: string } | null;
+  adCampaign: AdCampaign | null;
+  insights: AdSetInsights | null;
+}) {
+  if (!adAccount) {
+    return null;
+  }
+
+  if (!adCampaign) {
+    return (
+      <div className="mt-3 border-t border-neutral-200 pt-3 dark:border-neutral-800">
+        <form
+          action={launchAdCampaign.bind(null, businessId, campaignId, contentIndex)}
+          className="flex flex-wrap items-center gap-2"
+        >
+          <span className="text-sm text-neutral-500 dark:text-neutral-400">
+            🎯 Pautar esta publicación —
+          </span>
+          <input
+            type="number"
+            name="dailyBudget"
+            required
+            min="1"
+            step="0.01"
+            placeholder={`Presupuesto diario (${adAccount.currency})`}
+            className="w-48 rounded-md border border-neutral-300 bg-transparent px-2 py-1.5 text-sm outline-none focus:border-black dark:border-neutral-700 dark:focus:border-white"
+          />
+          <button
+            type="submit"
+            className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-900"
+          >
+            Crear campaña (pausada)
+          </button>
+        </form>
+      </div>
+    );
+  }
+
+  const dailyBudget = (adCampaign.dailyBudgetCents / 100).toFixed(2);
+  const suggestedBudget = ((adCampaign.dailyBudgetCents * 1.2) / 100).toFixed(2);
+
+  return (
+    <div className="mt-3 border-t border-neutral-200 pt-3 dark:border-neutral-800">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm">
+          {adCampaign.status === "active" ? "🟢 Pautando" : "⏸ Pausada"} en Meta Ads · {dailyBudget}{" "}
+          {adAccount.currency}/día
+        </p>
+        {adCampaign.status === "active" ? (
+          <form action={pauseAdCampaign.bind(null, businessId, adCampaign.id)}>
+            <button
+              type="submit"
+              className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-900"
+            >
+              Pausar
+            </button>
+          </form>
+        ) : (
+          <form action={activateAdCampaign.bind(null, businessId, adCampaign.id)}>
+            <button
+              type="submit"
+              className="rounded-md bg-black px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200"
+            >
+              Activar (empieza a gastar)
+            </button>
+          </form>
+        )}
+      </div>
+
+      {adCampaign.status === "active" && (
+        <div className="mt-2">
+          {insights ? (
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+              Últimos 7 días · 💰 {insights.spend.toFixed(2)} {adAccount.currency} · 👁{" "}
+              {insights.impressions} impresiones · 🖱 {insights.clicks} clics
+              {insights.ctr != null && ` · CTR ${insights.ctr.toFixed(2)}%`}
+              {insights.cpc != null && ` · CPC ${insights.cpc.toFixed(2)} ${adAccount.currency}`}
+            </p>
+          ) : (
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+              Aún no hay datos de rendimiento para esta pauta.
+            </p>
+          )}
+
+          <form
+            action={updateAdBudget.bind(null, businessId, adCampaign.id)}
+            className="mt-2 flex flex-wrap items-center gap-2"
+          >
+            <input type="hidden" name="dailyBudget" value={suggestedBudget} />
+            <button
+              type="submit"
+              className="rounded-md border border-neutral-300 px-3 py-1.5 text-xs font-medium hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-900"
+            >
+              Subir presupuesto 20% (a {suggestedBudget} {adAccount.currency}/día)
+            </button>
+          </form>
+        </div>
+      )}
+    </div>
   );
 }
 
