@@ -44,6 +44,18 @@ model Business {
   socialConnection SocialConnection?
   campaigns        Campaign[]
   videoAssets      VideoAsset[]
+  competitors      Competitor[]
+}
+
+// Just a name/search term, not a Page ID — we have no way to look up a
+// competitor's exact Page (no token for it). Matched against the public
+// Meta Ad Library (see lib/adLibrary.ts), which needs only free text.
+model Competitor {
+  id         String   @id @default(cuid())
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId String
+  name       String
+  createdAt  DateTime @default(now())
 }
 
 model Campaign {

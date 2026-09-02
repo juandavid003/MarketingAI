@@ -6,7 +6,15 @@ import { generateInsights, type Insight } from "@/lib/insights";
 import { getPageActivity, type PageActivity } from "@/lib/pageActivity";
 import { generateRealInsights } from "@/lib/realInsights";
 import { fetchAdAccounts, type AdAccount } from "@/lib/meta";
-import { disconnectMeta, refreshPages, createCampaign, createCampaignFromObjective } from "./actions";
+import { searchCompetitorAds, guessCountryCode, type AdLibraryAd } from "@/lib/adLibrary";
+import {
+  disconnectMeta,
+  refreshPages,
+  createCampaign,
+  createCampaignFromObjective,
+  addCompetitor,
+  removeCompetitor,
+} from "./actions";
 import { connectAdAccount } from "./ads-actions";
 
 export default async function BusinessProfilePage({
@@ -36,6 +44,7 @@ export default async function BusinessProfilePage({
       socialConnection: { include: { pages: true, adAccount: true } },
       campaigns: { orderBy: { createdAt: "desc" } },
       videoAssets: { orderBy: { createdAt: "desc" } },
+      competitors: { orderBy: { createdAt: "asc" } },
     },
   });
 
@@ -53,6 +62,22 @@ export default async function BusinessProfilePage({
         err instanceof Error ? err.message : "No se pudieron leer las cuentas publicitarias.";
     }
   }
+
+  const competitorCountryCode = guessCountryCode(business.location);
+  const competitorAds = new Map<string, { ads: AdLibraryAd[]; error: string | null }>();
+  await Promise.all(
+    business.competitors.map(async (competitor) => {
+      try {
+        const ads = await searchCompetitorAds(competitor.name, competitorCountryCode);
+        competitorAds.set(competitor.id, { ads, error: null });
+      } catch (err) {
+        competitorAds.set(competitor.id, {
+          ads: [],
+          error: err instanceof Error ? err.message : "Error al consultar la Ad Library.",
+        });
+      }
+    })
+  );
 
   const objectiveLabel =
     OBJECTIVES.find((o) => o.value === business.objective)?.label ??
@@ -139,6 +164,12 @@ export default async function BusinessProfilePage({
           ))}
         </div>
       </section>
+
+      <CompetitorSection
+        businessId={business.id}
+        competitors={business.competitors}
+        competitorAds={competitorAds}
+      />
 
       {business.campaigns.length > 0 && (
         <section className="mt-14">
@@ -454,6 +485,112 @@ function AdAccountCard({
         </form>
       )}
     </div>
+  );
+}
+
+function CompetitorSection({
+  businessId,
+  competitors,
+  competitorAds,
+}: {
+  businessId: string;
+  competitors: { id: string; name: string }[];
+  competitorAds: Map<string, { ads: AdLibraryAd[]; error: string | null }>;
+}) {
+  return (
+    <section className="mt-14">
+      <h2 className="text-lg font-semibold">👀 Competencia</h2>
+      <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+        Anuncios activos ahora mismo de negocios que agregues, según la Ad Library pública de
+        Meta — no necesitamos acceso a sus cuentas.
+      </p>
+
+      <form action={addCompetitor.bind(null, businessId)} className="mt-4 flex flex-wrap items-center gap-2">
+        <input
+          type="text"
+          name="name"
+          required
+          placeholder="Nombre del competidor (ej. Clínica Dental ABC)"
+          className="w-64 rounded-md border border-neutral-300 bg-transparent px-3 py-1.5 text-sm outline-none focus:border-black dark:border-neutral-700 dark:focus:border-white"
+        />
+        <button
+          type="submit"
+          className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-900"
+        >
+          Agregar
+        </button>
+      </form>
+
+      {competitors.length === 0 ? (
+        <p className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">
+          Agrega el nombre de un competidor para ver qué anuncios está pautando.
+        </p>
+      ) : (
+        <div className="mt-4 space-y-4">
+          {competitors.map((competitor) => {
+            const result = competitorAds.get(competitor.id);
+            return (
+              <div
+                key={competitor.id}
+                className="rounded-lg border border-neutral-200 p-4 dark:border-neutral-800"
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <p className="font-medium">{competitor.name}</p>
+                  <form action={removeCompetitor.bind(null, businessId, competitor.id)}>
+                    <button
+                      type="submit"
+                      className="text-sm text-neutral-500 underline hover:text-neutral-800 dark:hover:text-neutral-200"
+                    >
+                      Quitar
+                    </button>
+                  </form>
+                </div>
+
+                {result?.error && (
+                  <p className="mt-2 text-sm text-red-600 dark:text-red-400">{result.error}</p>
+                )}
+
+                {!result?.error && result?.ads.length === 0 && (
+                  <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
+                    No tiene anuncios activos por ahora.
+                  </p>
+                )}
+
+                {!result?.error && result && result.ads.length > 0 && (
+                  <ul className="mt-2 space-y-2">
+                    {result.ads.map((ad) => (
+                      <li key={ad.id} className="text-sm">
+                        {ad.bodies[0] && (
+                          <p className="text-neutral-600 dark:text-neutral-400">
+                            &ldquo;{ad.bodies[0].slice(0, 140)}
+                            {ad.bodies[0].length > 140 ? "…" : ""}&rdquo;
+                          </p>
+                        )}
+                        <div className="mt-0.5 flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
+                          {ad.startedAt && (
+                            <span>Desde {new Date(ad.startedAt).toLocaleDateString()}</span>
+                          )}
+                          {ad.snapshotUrl && (
+                            <a
+                              href={ad.snapshotUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="underline hover:text-neutral-800 dark:hover:text-neutral-200"
+                            >
+                              Ver anuncio
+                            </a>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }
 
