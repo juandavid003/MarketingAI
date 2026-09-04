@@ -5,6 +5,7 @@ import { mkdir, writeFile, readFile } from "fs/promises";
 import path from "path";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { requireBusinessAccess } from "@/lib/dal";
 import { decryptSecret } from "@/lib/crypto";
 import { analyzeVideoTranscript, type AiProvider } from "@/lib/ai";
 import { transcribeVideo, generateSrt } from "@/lib/whisper";
@@ -22,6 +23,8 @@ export async function uploadAndProcessVideo(
   _prevState: UploadVideoState,
   formData: FormData
 ): Promise<UploadVideoState> {
+  await requireBusinessAccess(businessId);
+
   const business = await prisma.business.findUnique({
     where: { id: businessId },
     include: { products: true },
@@ -154,6 +157,8 @@ export async function publishVideoVersion(
   versionId: string,
   formData: FormData
 ) {
+  await requireBusinessAccess(businessId);
+
   const facebookPageId = formData.get("pageId");
   if (typeof facebookPageId !== "string" || facebookPageId.length === 0) {
     redirect(

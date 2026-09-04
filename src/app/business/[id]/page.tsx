@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { requireBusinessAccess } from "@/lib/dal";
 import { OBJECTIVES } from "@/lib/constants";
 import { generateInsights, type Insight } from "@/lib/insights";
 import { getPageActivity, type PageActivity } from "@/lib/pageActivity";
@@ -36,6 +37,8 @@ export default async function BusinessProfilePage({
     campaign_error: campaignError,
     ad_error: adError,
   } = await searchParams;
+
+  await requireBusinessAccess(id);
 
   const business = await prisma.business.findUnique({
     where: { id },

@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { requireBusinessAccess } from "@/lib/dal";
 import {
   fetchAdAccounts,
   searchAdGeoLocation,
@@ -20,6 +21,8 @@ function redirectToBusiness(businessId: string, error: string): never {
 }
 
 export async function connectAdAccount(businessId: string, formData: FormData) {
+  await requireBusinessAccess(businessId);
+
   const adAccountId = formData.get("adAccountId");
   if (typeof adAccountId !== "string" || adAccountId.length === 0) {
     redirectToBusiness(businessId, "Selecciona una cuenta publicitaria.");
@@ -74,6 +77,8 @@ export async function launchAdCampaign(
   contentIndex: number,
   formData: FormData
 ) {
+  await requireBusinessAccess(businessId);
+
   const dailyBudgetRaw = formData.get("dailyBudget");
   const dailyBudget = typeof dailyBudgetRaw === "string" ? Number(dailyBudgetRaw) : NaN;
   if (!Number.isFinite(dailyBudget) || dailyBudget <= 0) {
@@ -195,6 +200,7 @@ async function requireAdCampaignAccess(businessId: string, adCampaignId: string)
 // The only place spend can turn on — always triggered by an explicit click
 // on the "Activar" button, never automatically.
 export async function activateAdCampaign(businessId: string, adCampaignId: string) {
+  await requireBusinessAccess(businessId);
   const access = await requireAdCampaignAccess(businessId, adCampaignId);
   if (!access) {
     redirect(`/business/${businessId}`);
@@ -215,6 +221,7 @@ export async function activateAdCampaign(businessId: string, adCampaignId: strin
 }
 
 export async function pauseAdCampaign(businessId: string, adCampaignId: string) {
+  await requireBusinessAccess(businessId);
   const access = await requireAdCampaignAccess(businessId, adCampaignId);
   if (!access) {
     redirect(`/business/${businessId}`);
@@ -237,6 +244,8 @@ export async function pauseAdCampaign(businessId: string, adCampaignId: string) 
 // Applies a budget change the user explicitly approved by clicking (e.g. a
 // "sube presupuesto 20%" suggestion) — never invoked on its own.
 export async function updateAdBudget(businessId: string, adCampaignId: string, formData: FormData) {
+  await requireBusinessAccess(businessId);
+
   const dailyBudgetRaw = formData.get("dailyBudget");
   const dailyBudget = typeof dailyBudgetRaw === "string" ? Number(dailyBudgetRaw) : NaN;
 

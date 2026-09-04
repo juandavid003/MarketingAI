@@ -14,6 +14,8 @@ datasource db {
 
 model Business {
   id             String   @id @default(cuid())
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         String
   name           String
   industry       String
   description    String
@@ -50,6 +52,7 @@ model Business {
 // Just a name/search term, not a Page ID — we have no way to look up a
 // competitor's exact Page (no token for it). Matched against the public
 // Meta Ad Library (see lib/adLibrary.ts), which needs only free text.
+
 model Competitor {
   id         String   @id @default(cuid())
   business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
@@ -93,6 +96,7 @@ model PublishedPost {
 // campaign via object_story_id — no separate creative/image upload needed.
 // Every row here always starts (and is created in Meta as) PAUSED; only an
 // explicit activateAdCampaign() call flips it to ACTIVE. Never auto-activated.
+
 model AdCampaign {
   id               String   @id @default(cuid())
   campaign         Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
@@ -205,6 +209,7 @@ model SocialConnection {
 // A business connects at most one ad account — matches SocialConnection
 // being 1:1 with Business today. ads_management calls (see lib/meta.ts) use
 // SocialConnection.accessToken (the user token), not a page token.
+
 model MetaAdAccount {
   id           String           @id @default(cuid())
   connection   SocialConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
@@ -227,4 +232,99 @@ model SocialPage {
   createdAt          DateTime         @default(now())
 
   @@unique([connectionId, facebookPageId])
+}
+
+model User {
+  id               String    @id
+  name             String
+  email            String
+  emailVerified    Boolean   @default(false)
+  image            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  stripeCustomerId String?
+  sessions         Session[]
+  accounts         Account[]
+  businesses       Business[]
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+// `npx @better-auth/cli generate` resolves its own bundled (older) copy of
+// better-auth's core schema logic rather than the version actually
+// installed in this project, and that older copy predates the `issuer`
+// field on Account — added by hand here, matching
+// node_modules/@better-auth/core/src/db/get-tables.ts for the installed
+// version (1.7.2), which is what actually runs at request time.
+model Account {
+  id                    String    @id
+  issuer                String
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([issuer, accountId])
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+model Subscription {
+  id                   String    @id
+  plan                 String
+  referenceId          String
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  status               String?   @default("incomplete")
+  periodStart          DateTime?
+  periodEnd            DateTime?
+  trialStart           DateTime?
+  trialEnd             DateTime?
+  cancelAtPeriodEnd    Boolean?  @default(false)
+  cancelAt             DateTime?
+  canceledAt           DateTime?
+  endedAt              DateTime?
+  seats                Int?
+  billingInterval      String?
+  stripeScheduleId     String?
+
+  @@map("subscription")
 }

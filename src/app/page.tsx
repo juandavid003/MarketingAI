@@ -1,5 +1,7 @@
+import { headers } from "next/headers";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 
 // Lists the current set of businesses from the database — always current
 // data, not a snapshot frozen at build time. Statically prerendering this
@@ -7,10 +9,18 @@ import { prisma } from "@/lib/prisma";
 // at once, which the Postgres pooler's connection limit couldn't handle.
 export const dynamic = "force-dynamic";
 
+// Temporary: this becomes the public marketing landing page in the UI
+// redesign pass, with a separate authenticated dashboard route for this
+// list. For now it just scopes the list to the signed-in user instead of
+// leaking every client's businesses to every visitor.
 export default async function Home() {
-  const businesses = await prisma.business.findMany({
-    orderBy: { createdAt: "desc" },
-  });
+  const session = await auth.api.getSession({ headers: await headers() });
+  const businesses = session
+    ? await prisma.business.findMany({
+        where: { userId: session.user.id },
+        orderBy: { createdAt: "desc" },
+      })
+    : [];
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-6 py-16">

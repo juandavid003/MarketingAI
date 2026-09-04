@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { buildMetaAuthUrl } from "@/lib/meta";
+import { auth } from "@/lib/auth";
 
 const STATE_COOKIE = "meta_oauth_state";
 
@@ -12,8 +13,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Missing businessId" }, { status: 400 });
   }
 
+  const session = await auth.api.getSession({ headers: request.headers });
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const business = await prisma.business.findUnique({ where: { id: businessId } });
-  if (!business) {
+  if (!business || business.userId !== session.user.id) {
     return NextResponse.json({ error: "Business not found" }, { status: 404 });
   }
 

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { requireBusinessAccess } from "@/lib/dal";
 import { encryptSecret, decryptSecret } from "@/lib/crypto";
 import { generateCampaign, generateStoryboard, generateImagePrompt, type AiProvider, type GeneratedCampaign } from "@/lib/ai";
 import { fetchPages, publishPagePhoto } from "@/lib/meta";
@@ -25,11 +26,13 @@ function resolveOpenAiImageKeyEncrypted(business: {
 }
 
 export async function disconnectMeta(businessId: string) {
+  await requireBusinessAccess(businessId);
   await prisma.socialConnection.deleteMany({ where: { businessId } });
   revalidatePath(`/business/${businessId}`);
 }
 
 export async function refreshPages(businessId: string) {
+  await requireBusinessAccess(businessId);
   const connection = await prisma.socialConnection.findUnique({ where: { businessId } });
   if (!connection) return;
 
@@ -67,6 +70,8 @@ export async function saveAiSettings(
   _prevState: AiSettingsState,
   formData: FormData
 ): Promise<AiSettingsState> {
+  await requireBusinessAccess(businessId);
+
   const provider = formData.get("provider");
   const apiKey = formData.get("apiKey");
   const modelOverride = formData.get("model");
@@ -124,6 +129,7 @@ export async function saveAiSettings(
 }
 
 export async function clearAiSettings(businessId: string) {
+  await requireBusinessAccess(businessId);
   await prisma.business.update({
     where: { id: businessId },
     data: { aiProvider: null, aiApiKeyEncrypted: null, aiModel: null, aiConfiguredAt: null },
@@ -133,6 +139,7 @@ export async function clearAiSettings(businessId: string) {
 }
 
 export async function clearTranscriptionKey(businessId: string) {
+  await requireBusinessAccess(businessId);
   await prisma.business.update({
     where: { id: businessId },
     data: { openaiTranscriptionKeyEncrypted: null },
@@ -142,6 +149,7 @@ export async function clearTranscriptionKey(businessId: string) {
 }
 
 export async function clearImageKey(businessId: string) {
+  await requireBusinessAccess(businessId);
   await prisma.business.update({
     where: { id: businessId },
     data: { openaiImageKeyEncrypted: null },
@@ -155,11 +163,12 @@ export async function createCampaign(
   insightTitle: string,
   insightSummary: string
 ) {
+  await requireBusinessAccess(businessId);
+
   const business = await prisma.business.findUnique({
     where: { id: businessId },
     include: { products: true },
   });
-
   if (!business) {
     redirect("/");
   }
@@ -212,6 +221,8 @@ export async function createCampaign(
 }
 
 export async function createCampaignFromObjective(businessId: string, formData: FormData) {
+  await requireBusinessAccess(businessId);
+
   const goalRaw = formData.get("goal");
   const goal = typeof goalRaw === "string" ? goalRaw.trim() : "";
 
@@ -285,6 +296,8 @@ export async function createStoryboard(
   campaignId: string,
   contentIndex: number
 ) {
+  await requireBusinessAccess(businessId);
+
   const [business, campaign] = await Promise.all([
     prisma.business.findUnique({ where: { id: businessId }, include: { products: true } }),
     prisma.campaign.findUnique({ where: { id: campaignId } }),
@@ -371,6 +384,8 @@ export async function createCampaignImage(
   campaignId: string,
   contentIndex: number
 ) {
+  await requireBusinessAccess(businessId);
+
   const [business, campaign] = await Promise.all([
     prisma.business.findUnique({ where: { id: businessId }, include: { products: true } }),
     prisma.campaign.findUnique({ where: { id: campaignId } }),
@@ -480,6 +495,8 @@ export async function publishCampaignImage(
   contentIndex: number,
   formData: FormData
 ) {
+  await requireBusinessAccess(businessId);
+
   const facebookPageId = formData.get("pageId");
   if (typeof facebookPageId !== "string" || facebookPageId.length === 0) {
     redirect(
@@ -566,6 +583,8 @@ export async function publishCampaignImage(
 }
 
 export async function addCompetitor(businessId: string, formData: FormData) {
+  await requireBusinessAccess(businessId);
+
   const name = formData.get("name");
   if (typeof name !== "string" || name.trim().length === 0) {
     redirect(`/business/${businessId}`);
@@ -580,6 +599,7 @@ export async function addCompetitor(businessId: string, formData: FormData) {
 }
 
 export async function removeCompetitor(businessId: string, competitorId: string) {
+  await requireBusinessAccess(businessId);
   await prisma.competitor.deleteMany({ where: { id: competitorId, businessId } });
   revalidatePath(`/business/${businessId}`);
   redirect(`/business/${businessId}`);

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { requireBusinessAccess } from "@/lib/dal";
 import type { GeneratedStoryboard } from "@/lib/ai";
 
 export default async function StoryboardPage({
@@ -10,11 +11,14 @@ export default async function StoryboardPage({
 }) {
   const { id, campaignId, storyboardId } = await params;
 
-  const storyboard = await prisma.storyboard.findUnique({
-    where: { id: storyboardId },
-  });
+  await requireBusinessAccess(id);
 
-  if (!storyboard || storyboard.campaignId !== campaignId) {
+  const [storyboard, campaign] = await Promise.all([
+    prisma.storyboard.findUnique({ where: { id: storyboardId } }),
+    prisma.campaign.findUnique({ where: { id: campaignId }, select: { businessId: true } }),
+  ]);
+
+  if (!storyboard || storyboard.campaignId !== campaignId || campaign?.businessId !== id) {
     notFound();
   }
 

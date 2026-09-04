@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { requireActiveSubscription } from "@/lib/dal";
 
 export type OnboardingState = {
   error?: string;
@@ -19,6 +20,8 @@ export async function createBusiness(
   _prevState: OnboardingState,
   formData: FormData
 ): Promise<OnboardingState> {
+  const { user } = await requireActiveSubscription();
+
   let businessId: string;
 
   try {
@@ -56,6 +59,7 @@ export async function createBusiness(
 
     const business = await prisma.business.create({
       data: {
+        userId: user.id,
         name,
         industry,
         description,

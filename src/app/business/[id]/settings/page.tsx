@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { requireBusinessAccess } from "@/lib/dal";
 import { clearAiSettings, clearTranscriptionKey, clearImageKey } from "../actions";
 import AiSettingsForm from "./AiSettingsForm";
 
@@ -15,6 +16,8 @@ export default async function AiSettingsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+
+  await requireBusinessAccess(id);
 
   const business = await prisma.business.findUnique({
     where: { id },

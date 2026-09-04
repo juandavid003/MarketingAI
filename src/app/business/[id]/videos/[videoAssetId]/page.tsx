@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { requireBusinessAccess } from "@/lib/dal";
 import type { Transcript } from "@/lib/whisper";
 import { publishVideoVersion } from "../../video-actions";
 
@@ -22,6 +23,8 @@ export default async function VideoAssetPage({
 }) {
   const { id, videoAssetId } = await params;
   const { publish_error: publishError } = await searchParams;
+
+  await requireBusinessAccess(id);
 
   const [video, business] = await Promise.all([
     prisma.videoAsset.findUnique({

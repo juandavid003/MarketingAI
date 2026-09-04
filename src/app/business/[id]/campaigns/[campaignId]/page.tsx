@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { prisma } from "@/lib/prisma";
+import { requireBusinessAccess } from "@/lib/dal";
 import type { GeneratedCampaign } from "@/lib/ai";
 import { createStoryboard, createCampaignImage, publishCampaignImage } from "../../actions";
 import { launchAdCampaign, activateAdCampaign, pauseAdCampaign, updateAdBudget } from "../../ads-actions";
@@ -32,6 +33,8 @@ export default async function CampaignPage({
     publish_error: publishError,
     ad_error: adError,
   } = await searchParams;
+
+  await requireBusinessAccess(id);
 
   const [campaign, business] = await Promise.all([
     prisma.campaign.findUnique({
