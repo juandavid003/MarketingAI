@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import AuthNav from "./AuthNav";
 
 // Lists the current set of businesses from the database — always current
 // data, not a snapshot frozen at build time. Statically prerendering this
@@ -24,10 +25,13 @@ export default async function Home() {
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-6 py-16">
-      <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400">
-        AI Growth OS
-      </p>
-      <h1 className="mt-1 text-3xl font-semibold">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400">
+          MarketingAI
+        </p>
+        <AuthNav userEmail={session?.user.email ?? null} />
+      </div>
+      <h1 className="mt-8 text-3xl font-semibold">
         Tu equipo de marketing con IA
       </h1>
       <p className="mt-3 max-w-md text-neutral-600 dark:text-neutral-400">

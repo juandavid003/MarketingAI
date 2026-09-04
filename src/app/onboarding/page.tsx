@@ -1,6 +1,9 @@
+import { requireActiveSubscription } from "@/lib/dal";
 import OnboardingForm from "./OnboardingForm";
 
-export default function OnboardingPage() {
+export default async function OnboardingPage() {
+  await requireActiveSubscription();
+
   return (
     <main className="mx-auto max-w-2xl px-6 py-16">
       <div className="mb-10 space-y-2">
