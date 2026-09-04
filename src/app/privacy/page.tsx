@@ -106,8 +106,12 @@ export default function PrivacyPage() {
           <p>
             Para preguntas sobre esta política o para solicitar la eliminación de tus datos,
             escríbenos a{" "}
-            <a href="mailto:soporte@tudominio.com" className="underline">
-              soporte@tudominio.com
+            <a href="mailto:rjuandavid2002@gmail.com" className="underline">
+              rjuandavid2002@gmail.com
+            </a>
+            . Ver también las{" "}
+            <a href="/terms" className="underline">
+              condiciones del servicio
             </a>
             .
           </p>
