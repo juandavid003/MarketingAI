@@ -27,7 +27,10 @@ export const auth = betterAuth({
 
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: true,
+    // Sin proveedor de correo configurado (Resend) los clientes se crean
+    // directamente con email + contraseña ya definidos — no hay enlace de
+    // verificación que enviar. Reactivar cuando haya RESEND_API_KEY real.
+    requireEmailVerification: false,
     sendResetPassword: async ({ user, url }) => {
       // Fire-and-forget by design (avoid awaiting email sends on the auth
       // response — see the guide this callback shape came from), but still
@@ -49,7 +52,7 @@ export const auth = betterAuth({
         html: `<p>Haz clic para confirmar tu correo:</p><p><a href="${url}">${url}</a></p>`,
       }).catch((err) => console.error("No se pudo enviar el correo de verificación:", err));
     },
-    sendOnSignUp: true,
+    sendOnSignUp: false,
     autoSignInAfterVerification: true,
   },
 

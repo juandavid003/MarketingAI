@@ -10,7 +10,6 @@ export default function SignupForm() {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sentTo, setSentTo] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -26,7 +25,6 @@ export default function SignupForm() {
       name,
       email,
       password,
-      callbackURL: "/pricing",
     });
 
     setPending(false);
@@ -36,17 +34,8 @@ export default function SignupForm() {
       return;
     }
 
-    setSentTo(email);
+    router.push("/pricing");
     router.refresh();
-  }
-
-  if (sentTo) {
-    return (
-      <p className="rounded-md bg-green-50 px-4 py-3 text-sm text-green-700 dark:bg-green-950 dark:text-green-300">
-        Te enviamos un correo a <strong>{sentTo}</strong> para confirmar tu cuenta. Haz clic en el
-        enlace para continuar.
-      </p>
-    );
   }
 
   return (
