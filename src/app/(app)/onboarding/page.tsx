@@ -1,9 +1,9 @@
-import { requireActiveSubscription } from "@/lib/dal";
+import { requireEnabledAccount } from "@/lib/dal";
 import { PageHeader } from "@/components/ui/PageHeader";
 import OnboardingForm from "./OnboardingForm";
 
 export default async function OnboardingPage() {
-  await requireActiveSubscription();
+  await requireEnabledAccount();
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-12">

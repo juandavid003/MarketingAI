@@ -24,7 +24,7 @@ export default async function Home() {
           <LinkButton href={ctaHref} size="lg">
             {session ? "Ir a mi cuenta" : "Crear cuenta"}
           </LinkButton>
-          <LinkButton href="/pricing" variant="secondary" size="lg">
+          <LinkButton href="#precio" variant="secondary" size="lg">
             Ver precio
           </LinkButton>
         </div>
@@ -55,13 +55,15 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-3xl px-6 py-16 text-center">
+      <section id="precio" className="mx-auto max-w-3xl px-6 py-16 text-center">
         <h2 className="text-2xl font-semibold">Un solo plan, sin sorpresas</h2>
         <Card className="mx-auto mt-6 max-w-xs">
           <p className="text-3xl font-semibold">
             $100<span className="text-base font-normal text-muted">/mes</span>
           </p>
-          <p className="mt-2 text-sm text-muted">Negocios ilimitados. Cancela cuando quieras.</p>
+          <p className="mt-2 text-sm text-muted">
+            Negocios ilimitados. Pago por transferencia, activamos tu cuenta al confirmarlo.
+          </p>
           <LinkButton href={ctaHref} className="mt-4 w-full">
             {session ? "Ir a mi cuenta" : "Empezar"}
           </LinkButton>

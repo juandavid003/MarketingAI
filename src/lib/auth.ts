@@ -1,7 +1,5 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { stripe } from "@better-auth/stripe";
-import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
 
@@ -12,13 +10,6 @@ function requireEnv(name: string): string {
   }
   return value;
 }
-
-// Pinned to the version this "stripe" package build was generated against
-// (node_modules/stripe/cjs/apiVersion.d.ts) rather than left to drift with
-// the Stripe account's dashboard-configured default.
-const stripeClient = new Stripe(requireEnv("STRIPE_SECRET_KEY"), {
-  apiVersion: "2026-08-26.dahlia",
-});
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
@@ -56,20 +47,15 @@ export const auth = betterAuth({
     autoSignInAfterVerification: true,
   },
 
-  plugins: [
-    stripe({
-      stripeClient,
-      stripeWebhookSecret: requireEnv("STRIPE_WEBHOOK_SECRET"),
-      createCustomerOnSignUp: true,
-      subscription: {
-        enabled: true,
-        plans: [
-          {
-            name: "pro",
-            priceId: requireEnv("STRIPE_PRICE_ID"),
-          },
-        ],
-      },
-    }),
-  ],
+  user: {
+    additionalFields: {
+      // "admin" (platform owner, always treated as enabled, sees /admin) or
+      // "client". input: false so a signup request body can never set its
+      // own role — only ever changed server-side (see /admin actions).
+      role: { type: "string", defaultValue: "client", input: false },
+      // No payment gateway in this version — the admin flips this on from
+      // /admin once a client's bank transfer arrives.
+      enabled: { type: "boolean", defaultValue: false, input: false },
+    },
+  },
 });

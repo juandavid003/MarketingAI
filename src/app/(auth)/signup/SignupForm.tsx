@@ -34,7 +34,7 @@ export default function SignupForm() {
       return;
     }
 
-    router.push("/pricing");
+    router.push("/onboarding");
     router.refresh();
   }
 

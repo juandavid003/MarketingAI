@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireActiveSubscription } from "@/lib/dal";
+import { requireEnabledAccount } from "@/lib/dal";
 
 export type OnboardingState = {
   error?: string;
@@ -20,7 +20,7 @@ export async function createBusiness(
   _prevState: OnboardingState,
   formData: FormData
 ): Promise<OnboardingState> {
-  const { user } = await requireActiveSubscription();
+  const user = await requireEnabledAccount();
 
   let businessId: string;
 

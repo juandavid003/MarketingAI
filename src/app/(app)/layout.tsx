@@ -11,7 +11,7 @@ export default async function AppGroupLayout({ children }: { children: React.Rea
   });
 
   return (
-    <AppShell businesses={businesses} userEmail={user.email}>
+    <AppShell businesses={businesses} userEmail={user.email} isAdmin={user.role === "admin"}>
       {children}
     </AppShell>
   );

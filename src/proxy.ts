@@ -13,7 +13,11 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hasSession = Boolean(getSessionCookie(request));
 
-  const isProtected = pathname.startsWith("/onboarding") || pathname.startsWith("/business");
+  const isProtected =
+    pathname.startsWith("/onboarding") ||
+    pathname.startsWith("/business") ||
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/pending");
   if (isProtected && !hasSession) {
     return NextResponse.redirect(new URL("/login", request.url));
   }

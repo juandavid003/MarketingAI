@@ -410,25 +410,33 @@ ahi configuras la configuracion de la api con inicio de sesion
      en el dashboard (Roles de la app → Agregar personas) — así ya puedes usarla hoy contigo
      mismo y con clientes de prueba que agregues ahí, sin esperar la aprobación
 
+## Cómo funciona el cobro (sin pasarela de pagos)
+
+Esta versión no usa Stripe ni ninguna pasarela de pagos — el cobro es manual, por
+transferencia, y tú controlas el acceso desde un panel de administrador:
+
+1. Le creas la cuenta al cliente (correo + contraseña) desde `/signup`, o él mismo se
+   registra. La cuenta queda creada pero **deshabilitada** por defecto — no puede entrar a
+   crear su negocio todavía.
+2. El cliente te hace la transferencia de $100/mes.
+3. Entras a **`/admin`** (solo visible para tu cuenta, marcada como administrador) — ahí ves
+   la lista de todos los clientes, su correo, sus negocios, y un botón para **Habilitar** o
+   **Deshabilitar** cada uno.
+4. Confirmas la transferencia → clic en "Habilitar" → el cliente ya puede entrar y usar el
+   sistema. Si un mes no paga, entras y le das "Deshabilitar" — pierde el acceso al instante,
+   sin borrar nada de su información.
+
+Esto ya funciona de punta a punta, no requiere ninguna cuenta externa ni configuración.
+
 ## Lo único que falta de tu parte para vender esto
 
-El producto ya está completo: cuentas con email/contraseña, cobro con Stripe, aislamiento
-total entre clientes (cada uno solo ve su propio negocio), y el rediseño de UI/UX. Lo que
-sigue son cuentas en servicios externos que solo tú puedes crear (no puedo crearlas por ti),
-más la aprobación de Meta de los pasos 9-11 de arriba.
+El producto ya está completo: cuentas con email/contraseña, panel de administrador para
+habilitar/deshabilitar clientes, aislamiento total entre clientes (cada uno solo ve su propio
+negocio), y el rediseño de UI/UX. Lo único que queda es Resend (opcional, para recuperación de
+contraseña) y la aprobación de Meta de los pasos 9-11 de arriba.
 
-12.- Stripe (el cobro de $100/mes):
-   - Crea una cuenta en https://dashboard.stripe.com (o usa una que ya tengas).
-   - Crea un producto, por ejemplo "MarketingAI Pro", con un precio recurrente mensual de $100.
-   - Copia el ID del precio (empieza con `price_...`) → variable de entorno `STRIPE_PRICE_ID`.
-   - En Developers → API keys, copia tu clave secreta (`sk_test_...` mientras pruebas,
-     `sk_live_...` cuando cobres de verdad) → variable `STRIPE_SECRET_KEY`.
-   - En Developers → Webhooks → Add endpoint, registra:
-     `https://<tu-dominio-de-producción>/api/auth/stripe/webhook`
-     y selecciona los eventos de checkout/suscripción (o "todos"). Copia el "Signing secret"
-     (`whsec_...`) → variable `STRIPE_WEBHOOK_SECRET`.
-
-13.- Resend (correos de verificación de cuenta y recuperación de contraseña):
+12.- Resend (opcional — solo para el correo de "olvidé mi contraseña"; hoy si un cliente
+    olvida la suya, se la reseteas tú manualmente desde la base de datos o le creas una nueva):
    - Crea una cuenta en https://resend.com.
    - Verifica un dominio de envío propio (mientras tanto puedes probar con el dominio de
      pruebas que Resend te da por defecto).
@@ -436,13 +444,12 @@ más la aprobación de Meta de los pasos 9-11 de arriba.
    - Actualiza `EMAIL_FROM` con tu dominio verificado, por ejemplo
      `MarketingAI <noreply@tudominio.com>`.
 
-14.- `BETTER_AUTH_SECRET` ya está generado — no tienes que hacer nada aquí, solo asegúrate
-    de copiar el mismo valor a las variables de entorno de producción (Railway).
+13.- `BETTER_AUTH_SECRET` ya está generado — no tienes que hacer nada aquí.
 
-15.- Cada cliente nuevo que se registre configura por su cuenta, desde Configuración dentro
-    de la app, su propia conexión de Meta (Facebook/Instagram) y su propia clave de API de IA
-    (Anthropic u OpenAI) — esto ya funciona hoy tal cual, no requiere que hagas nada por cada
-    cliente nuevo, y ningún cliente comparte credenciales ni cuota con otro.
+14.- Cada cliente nuevo configura por su cuenta, desde Configuración dentro de la app, su
+    propia conexión de Meta (Facebook/Instagram) y su propia clave de API de IA (Anthropic u
+    OpenAI) — esto ya funciona hoy tal cual, no requiere que hagas nada por cada cliente
+    nuevo, y ningún cliente comparte credenciales ni cuota con otro.
 
 ## Casos de uso para App Review (copiar y pegar en el formulario de Meta, ajustar si hace falta)
 

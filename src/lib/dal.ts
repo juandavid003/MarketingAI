@@ -16,26 +16,30 @@ export const requireUser = cache(async () => {
   return session.user;
 });
 
-export const requireActiveSubscription = cache(async () => {
+// No payment gateway in this version — access is a manual on/off switch the
+// admin flips from /admin once a client's bank transfer arrives. Admins are
+// always treated as enabled.
+export const requireEnabledAccount = cache(async () => {
   const user = await requireUser();
-  const subscriptions = await auth.api.listActiveSubscriptions({
-    query: { referenceId: user.id },
-    headers: await headers(),
-  });
-  const active = subscriptions.find(
-    (sub) => sub.status === "active" || sub.status === "trialing"
-  );
-  if (!active) {
-    redirect("/pricing");
+  if (user.role !== "admin" && !user.enabled) {
+    redirect("/pending");
   }
-  return { user, subscription: active };
+  return user;
+});
+
+export const requireAdmin = cache(async () => {
+  const user = await requireUser();
+  if (user.role !== "admin") {
+    notFound();
+  }
+  return user;
 });
 
 // The one function every business-scoped page/action should call first.
-// Composes auth + billing + ownership so a client can never reach, read, or
+// Composes auth + access + ownership so a client can never reach, read, or
 // mutate another client's business — no route today does this check at all.
 export async function requireBusinessAccess(businessId: string) {
-  const { user } = await requireActiveSubscription();
+  const user = await requireEnabledAccount();
   const business = await prisma.business.findUnique({ where: { id: businessId } });
   if (!business || business.userId !== user.id) {
     notFound();

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, CreditCard, LogOut, Plus, Menu, X } from "lucide-react";
+import { LayoutDashboard, Users, LogOut, Plus, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
 
@@ -11,10 +11,12 @@ type BusinessSummary = { id: string; name: string; industry: string };
 export function AppShell({
   businesses,
   userEmail,
+  isAdmin,
   children,
 }: {
   businesses: BusinessSummary[];
   userEmail: string;
+  isAdmin: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -83,9 +85,11 @@ export function AppShell({
             <NavLink href="/onboarding" icon={Plus} active={pathname === "/onboarding"}>
               Nuevo negocio
             </NavLink>
-            <NavLink href="/billing" icon={CreditCard} active={pathname === "/billing"}>
-              Facturación
-            </NavLink>
+            {isAdmin && (
+              <NavLink href="/admin" icon={Users} active={pathname === "/admin"}>
+                Clientes
+              </NavLink>
+            )}
           </nav>
 
           <div className="space-y-2 border-t border-border pt-3">
