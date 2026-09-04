@@ -9,8 +9,7 @@ export default async function ResetPasswordPage({
 
   return (
     <div>
-      <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400">MarketingAI</p>
-      <h1 className="mt-1 text-2xl font-semibold">Crea una nueva contraseña</h1>
+      <h1 className="text-2xl font-semibold">Crea una nueva contraseña</h1>
 
       <div className="mt-8">
         {token ? (

@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
+import { Input, Label } from "@/components/ui/Field";
+import { Button } from "@/components/ui/Button";
 
 export default function ForgotPasswordForm() {
   const [pending, setPending] = useState(false);
@@ -46,24 +48,12 @@ export default function ForgotPasswordForm() {
         </p>
       )}
       <div>
-        <label htmlFor="email" className="text-sm font-medium">
-          Correo
-        </label>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          required
-          className="mt-1 w-full rounded-md border border-neutral-300 bg-transparent px-3 py-2 text-sm outline-none focus:border-black dark:border-neutral-700 dark:focus:border-white"
-        />
+        <Label htmlFor="email">Correo</Label>
+        <Input id="email" name="email" type="email" required className="mt-1" />
       </div>
-      <button
-        type="submit"
-        disabled={pending}
-        className="w-full rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50 dark:bg-white dark:text-black dark:hover:bg-neutral-200"
-      >
+      <Button type="submit" disabled={pending} className="w-full">
         {pending ? "Enviando..." : "Enviar enlace"}
-      </button>
+      </Button>
     </form>
   );
 }
