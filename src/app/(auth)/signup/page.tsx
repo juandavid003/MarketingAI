@@ -1,7 +1,13 @@
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import Link from "next/link";
+import { auth } from "@/lib/auth";
 import SignupForm from "./SignupForm";
 
-export default function SignupPage() {
+export default async function SignupPage() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (session) redirect("/onboarding");
+
   return (
     <div>
       <h1 className="text-2xl font-semibold">Crea tu cuenta</h1>

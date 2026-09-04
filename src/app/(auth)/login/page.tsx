@@ -1,7 +1,16 @@
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import Link from "next/link";
+import { auth } from "@/lib/auth";
 import LoginForm from "./LoginForm";
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  // Real (DB-backed) check, not the cookie-only one in proxy.ts — see the
+  // comment there on why this redirect can't live in proxy.ts without
+  // risking a loop with a stale cookie.
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (session) redirect("/onboarding");
+
   return (
     <div>
       <h1 className="text-2xl font-semibold">Inicia sesión</h1>
