@@ -54,3 +54,6 @@ skills-lock.json
 
 # user-uploaded/generated video files (large binaries, not source)
 /public/uploads/
+
+.vercel
+.env*

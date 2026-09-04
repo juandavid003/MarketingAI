@@ -370,8 +370,9 @@ ahi configuras la configuracion de la api con inicio de sesion
 6.- configurar apikey ya sea de antropic u openai
 7.- conectar perfil de intagram profesional con pagina de facebook
 8.- antes de pedir nada avanzado, completa la configuración básica de la app (Meta la exige):
-   - Configuración → Básica → Política de privacidad: usa la URL de /privacy de esta app
-     (cuando esté desplegada; en local es http://localhost:3000/privacy, no sirve para Meta)
+   - Configuración → Básica → Política de privacidad:
+     https://web-production-ec6b96.up.railway.app/privacy
+     (app desplegada en Railway — proyecto "ai-growth-os", servicio "web")
    - Configuración → Básica → Ícono de la app: sube uno de 1024x1024
    - Configuración → Básica → Categoría de la app
 
