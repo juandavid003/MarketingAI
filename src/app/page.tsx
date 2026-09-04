@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 
+// Lists the current set of businesses from the database — always current
+// data, not a snapshot frozen at build time. Statically prerendering this
+// also meant Turbopack's parallel build workers all opened DB connections
+// at once, which the Postgres pooler's connection limit couldn't handle.
+export const dynamic = "force-dynamic";
+
 export default async function Home() {
   const businesses = await prisma.business.findMany({
     orderBy: { createdAt: "desc" },
