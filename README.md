@@ -379,6 +379,10 @@ ahi configuras la configuracion de la api con inicio de sesion
      (app desplegada en Railway — proyecto "ai-growth-os", servicio "web")
    - Configuración → Básica → Ícono de la app: sube uno de 1024x1024
    - Configuración → Básica → Categoría de la app
+   - Configuración → Básica → Dominios de la app: agrega
+     `web-production-ec6b96.up.railway.app` (solo el dominio, sin `https://` ni rutas). Sin
+     esto Meta rechaza cualquier URL de la app con "El dominio de esta URL no está incluido
+     en los dominios de la app".
 
 9.- Verificación de negocio (Business Verification) — la haces tú, con rol de Admin en tu
     Business Manager. Es requisito para todo lo que sigue (Ad Library API y App Review),
