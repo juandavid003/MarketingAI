@@ -36,6 +36,10 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 
 
+## Deploy
+
+Prisma - Prisma Databa
+Railway - Deply
 
 
 
@@ -406,10 +410,44 @@ ahi configuras la configuracion de la api con inicio de sesion
      en el dashboard (Roles de la app → Agregar personas) — así ya puedes usarla hoy contigo
      mismo y con clientes de prueba que agregues ahí, sin esperar la aprobación
 
+## Lo único que falta de tu parte para vender esto
+
+El producto ya está completo: cuentas con email/contraseña, cobro con Stripe, aislamiento
+total entre clientes (cada uno solo ve su propio negocio), y el rediseño de UI/UX. Lo que
+sigue son cuentas en servicios externos que solo tú puedes crear (no puedo crearlas por ti),
+más la aprobación de Meta de los pasos 9-11 de arriba.
+
+12.- Stripe (el cobro de $100/mes):
+   - Crea una cuenta en https://dashboard.stripe.com (o usa una que ya tengas).
+   - Crea un producto, por ejemplo "MarketingAI Pro", con un precio recurrente mensual de $100.
+   - Copia el ID del precio (empieza con `price_...`) → variable de entorno `STRIPE_PRICE_ID`.
+   - En Developers → API keys, copia tu clave secreta (`sk_test_...` mientras pruebas,
+     `sk_live_...` cuando cobres de verdad) → variable `STRIPE_SECRET_KEY`.
+   - En Developers → Webhooks → Add endpoint, registra:
+     `https://<tu-dominio-de-producción>/api/auth/stripe/webhook`
+     y selecciona los eventos de checkout/suscripción (o "todos"). Copia el "Signing secret"
+     (`whsec_...`) → variable `STRIPE_WEBHOOK_SECRET`.
+
+13.- Resend (correos de verificación de cuenta y recuperación de contraseña):
+   - Crea una cuenta en https://resend.com.
+   - Verifica un dominio de envío propio (mientras tanto puedes probar con el dominio de
+     pruebas que Resend te da por defecto).
+   - Copia tu API key → variable `RESEND_API_KEY`.
+   - Actualiza `EMAIL_FROM` con tu dominio verificado, por ejemplo
+     `MarketingAI <noreply@tudominio.com>`.
+
+14.- `BETTER_AUTH_SECRET` ya está generado — no tienes que hacer nada aquí, solo asegúrate
+    de copiar el mismo valor a las variables de entorno de producción (Railway).
+
+15.- Cada cliente nuevo que se registre configura por su cuenta, desde Configuración dentro
+    de la app, su propia conexión de Meta (Facebook/Instagram) y su propia clave de API de IA
+    (Anthropic u OpenAI) — esto ya funciona hoy tal cual, no requiere que hagas nada por cada
+    cliente nuevo, y ningún cliente comparte credenciales ni cuota con otro.
+
 ## Casos de uso para App Review (copiar y pegar en el formulario de Meta, ajustar si hace falta)
 
 **pages_manage_posts**
-AI Growth OS genera contenido de marketing (imagen + texto) a partir de instrucciones del
+MarketingAI genera contenido de marketing (imagen + texto) a partir de instrucciones del
 propio dueño del negocio. Cuando el usuario revisa esa pieza en la página de la campaña y hace
 clic en "Publicar en Facebook", la app publica esa foto con su descripción en la Página de
 Facebook que el usuario administra y eligió de una lista de sus propias Páginas. Nunca se
