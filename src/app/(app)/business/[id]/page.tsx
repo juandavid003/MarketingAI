@@ -24,7 +24,13 @@ import { getPageActivity, type PageActivity } from "@/lib/pageActivity";
 import { generateRealInsights } from "@/lib/realInsights";
 import { profileCompleteness } from "@/lib/profileCompleteness";
 import { fetchAdAccounts, type AdAccount } from "@/lib/meta";
-import { searchCompetitorAds, guessCountryCode, type AdLibraryAd } from "@/lib/adLibrary";
+import {
+  searchCompetitorAds,
+  guessCountryCode,
+  adLibraryWebUrl,
+  AdLibraryAccessError,
+  type AdLibraryAd,
+} from "@/lib/adLibrary";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button, LinkButton } from "@/components/ui/Button";
@@ -89,7 +95,10 @@ export default async function BusinessProfilePage({
   }
 
   const competitorCountryCode = guessCountryCode(business.location);
-  const competitorAds = new Map<string, { ads: AdLibraryAd[]; error: string | null }>();
+  const competitorAds = new Map<
+    string,
+    { ads: AdLibraryAd[]; error: string | null; accessPending?: boolean }
+  >();
   await Promise.all(
     business.competitors.map(async (competitor) => {
       try {
@@ -99,6 +108,7 @@ export default async function BusinessProfilePage({
         competitorAds.set(competitor.id, {
           ads: [],
           error: err instanceof Error ? err.message : "Error al consultar la Ad Library.",
+          accessPending: err instanceof AdLibraryAccessError,
         });
       }
     })
@@ -212,6 +222,7 @@ export default async function BusinessProfilePage({
           businessId={business.id}
           competitors={business.competitors}
           competitorAds={competitorAds}
+          countryCode={competitorCountryCode}
         />
       </Section>
 
@@ -540,11 +551,14 @@ function CompetitorSection({
   businessId,
   competitors,
   competitorAds,
+  countryCode,
 }: {
   businessId: string;
   competitors: { id: string; name: string }[];
-  competitorAds: Map<string, { ads: AdLibraryAd[]; error: string | null }>;
+  competitorAds: Map<string, { ads: AdLibraryAd[]; error: string | null; accessPending?: boolean }>;
+  countryCode: string;
 }) {
+  const anyAccessPending = [...competitorAds.values()].some((r) => r.accessPending);
   return (
     <div>
       <form action={addCompetitor.bind(null, businessId)} className="flex flex-wrap items-center gap-2">
@@ -559,6 +573,16 @@ function CompetitorSection({
           Agregar
         </Button>
       </form>
+
+      {anyAccessPending && (
+        <p className="mt-4 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+          La consulta automática de anuncios aún no está disponible: Meta debe aprobar el acceso
+          de esta app a su Ad Library API. Mientras tanto, usa el enlace &ldquo;Ver en la biblioteca
+          de anuncios de Meta&rdquo; de cada competidor. Nota: fuera de la Unión Europea, la API de
+          Meta casi no devuelve anuncios comerciales, así que esa página pública es la fuente más
+          completa.
+        </p>
+      )}
 
       {competitors.length === 0 ? (
         <p className="mt-4 text-sm text-muted">
@@ -579,12 +603,24 @@ function CompetitorSection({
                   </form>
                 </div>
 
-                {result?.error && (
+                <a
+                  href={adLibraryWebUrl(competitor.name, countryCode)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-1 inline-flex items-center gap-1 text-sm text-brand hover:underline"
+                >
+                  Ver en la biblioteca de anuncios de Meta <ExternalLink className="size-3" />
+                </a>
+
+                {result?.error && !result.accessPending && (
                   <p className="mt-2 text-sm text-red-600 dark:text-red-400">{result.error}</p>
                 )}
 
                 {!result?.error && result?.ads.length === 0 && (
-                  <p className="mt-2 text-sm text-muted">No tiene anuncios activos por ahora.</p>
+                  <p className="mt-2 text-sm text-muted">
+                    La API de Meta no devolvió anuncios activos (fuera de la UE suele no incluir
+                    anuncios comerciales). Revisa la biblioteca pública con el enlace de arriba.
+                  </p>
                 )}
 
                 {!result?.error && result && result.ads.length > 0 && (

@@ -49,6 +49,22 @@ export function guessCountryCode(location: string): string {
   return "EC";
 }
 
+// Public Ad Library web page for a search term — what the business owner can
+// always open themselves. We only link to it; we never scrape it.
+export function adLibraryWebUrl(searchTerm: string, countryCode: string): string {
+  const url = new URL("https://www.facebook.com/ads/library/");
+  url.searchParams.set("active_status", "active");
+  url.searchParams.set("ad_type", "all");
+  url.searchParams.set("country", countryCode);
+  url.searchParams.set("q", searchTerm);
+  url.searchParams.set("search_type", "keyword_unordered");
+  return url.toString();
+}
+
+// Thrown when the app hasn't been granted Ad Library API access yet (needs
+// Business Verification + the "Ads Library API" product approved by Meta).
+export class AdLibraryAccessError extends Error {}
+
 export type AdLibraryAd = {
   id: string;
   pageName: string;
@@ -77,7 +93,11 @@ export async function searchCompetitorAds(
   const res = await fetch(url.toString());
   const json = await res.json();
   if (!res.ok) {
-    const message = json?.error?.message ?? JSON.stringify(json);
+    const message: string = json?.error?.message ?? JSON.stringify(json);
+    const code = json?.error?.code;
+    if (code === 10 || code === 200 || /permission/i.test(message)) {
+      throw new AdLibraryAccessError(message);
+    }
     throw new Error(`Meta Ad Library API error: ${message}`);
   }
 
