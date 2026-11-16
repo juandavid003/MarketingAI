@@ -3,20 +3,16 @@ import { promisify } from "util";
 
 const execFileAsync = promisify(execFile);
 
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value;
-}
-
-function ffmpegPath(): string {
-  return requireEnv("FFMPEG_PATH");
+// FFMPEG_PATH / FFPROBE_PATH are optional: unset means "use the binary on
+// PATH" (how the Railway container provides it). Locally on Windows, prefer
+// forward slashes in .env (C:/Users/...): inside double quotes, Next's env
+// loader treats backslash sequences (e.g. a backslash followed by r) as escapes.
+export function ffmpegPath(): string {
+  return process.env.FFMPEG_PATH?.trim() || "ffmpeg";
 }
 
 function ffprobePath(): string {
-  return requireEnv("FFPROBE_PATH");
+  return process.env.FFPROBE_PATH?.trim() || "ffprobe";
 }
 
 export async function getDurationSeconds(inputPath: string): Promise<number> {

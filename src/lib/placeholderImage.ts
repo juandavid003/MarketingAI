@@ -4,16 +4,10 @@ import { writeFile, unlink } from "fs/promises";
 import path from "path";
 import os from "os";
 import { randomUUID } from "crypto";
+import { ffmpegPath } from "@/lib/video";
 
 const execFileAsync = promisify(execFile);
 
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value;
-}
 
 // Same escaping ffmpeg's filter parser needs for Windows paths inside -vf,
 // reused from lib/video.ts's approach (colon/backslash are filter syntax).
@@ -112,7 +106,7 @@ export async function generatePlaceholderImage(
   ];
 
   try {
-    await execFileAsync(requireEnv("FFMPEG_PATH"), args, { maxBuffer: 1024 * 1024 * 16 });
+    await execFileAsync(ffmpegPath(), args, { maxBuffer: 1024 * 1024 * 16 });
   } finally {
     await unlink(textFilePath).catch(() => {});
   }

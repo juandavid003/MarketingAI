@@ -1,0 +1,15 @@
+-- AlterTable
+ALTER TABLE "Business" ADD COLUMN     "subIndustry" TEXT,
+ADD COLUMN     "valueProposition" TEXT,
+ADD COLUMN     "serviceArea" TEXT,
+ADD COLUMN     "customerPersonas" TEXT,
+ADD COLUMN     "brandTone" TEXT,
+ADD COLUMN     "brandColors" TEXT,
+ADD COLUMN     "contentLanguage" TEXT NOT NULL DEFAULT 'es',
+ADD COLUMN     "mainPlatforms" TEXT[] DEFAULT ARRAY[]::TEXT[],
+ADD COLUMN     "preferredCtas" TEXT,
+ADD COLUMN     "websiteUrl" TEXT,
+ADD COLUMN     "whatsapp" TEXT,
+ADD COLUMN     "contactEmail" TEXT,
+ADD COLUMN     "businessGoals" TEXT,
+ADD COLUMN     "conversionGoal" TEXT;

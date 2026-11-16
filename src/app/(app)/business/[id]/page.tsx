@@ -22,6 +22,7 @@ import { OBJECTIVES } from "@/lib/constants";
 import type { Insight } from "@/lib/insights";
 import { getPageActivity, type PageActivity } from "@/lib/pageActivity";
 import { generateRealInsights } from "@/lib/realInsights";
+import { profileCompleteness } from "@/lib/profileCompleteness";
 import { fetchAdAccounts, type AdAccount } from "@/lib/meta";
 import { searchCompetitorAds, guessCountryCode, type AdLibraryAd } from "@/lib/adLibrary";
 import { Card } from "@/components/ui/Card";
@@ -110,6 +111,7 @@ export default async function BusinessProfilePage({
     ? await getPageActivity(business.socialConnection.pages)
     : [];
   const insights = generateRealInsights(pageActivity, business.products);
+  const profile = profileCompleteness(business);
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
@@ -265,7 +267,21 @@ export default async function BusinessProfilePage({
       </Section>
 
       <section className="mt-14 space-y-6 border-t border-border pt-10">
-        <h2 className="text-sm font-medium text-muted">Perfil de negocio</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-medium text-muted">
+            Perfil de negocio · completo al {profile.percent}%
+          </h2>
+          <LinkButton href={`/business/${business.id}/profile`} variant="secondary" size="sm">
+            Editar perfil
+          </LinkButton>
+        </div>
+        {profile.missing.length > 0 && (
+          <p className="text-sm text-muted">
+            Completa {profile.missing.slice(0, 3).join(", ").toLowerCase()}
+            {profile.missing.length > 3 ? " y más" : ""} para que la IA personalice mejor tu
+            contenido.
+          </p>
+        )}
         <Detail label="¿Qué vende?" value={business.description} />
         <Detail label="Audiencia objetivo" value={business.targetAudience} />
         <Detail label="Objetivo principal" value={objectiveLabel} />

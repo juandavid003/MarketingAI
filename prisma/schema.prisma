@@ -26,6 +26,25 @@ model Business {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
+  // Extended business profile (docs/DATA_MODEL.md). All optional so existing
+  // businesses keep working; lib/businessContext.ts feeds whatever is filled
+  // in to every AI prompt. Industry-agnostic by design: free text, no
+  // per-industry columns.
+  subIndustry      String?
+  valueProposition String?
+  serviceArea      String? // zonas de cobertura
+  customerPersonas String? // perfiles de cliente ideal, texto libre
+  brandTone        String?
+  brandColors      String? // hex separados por coma, ej. "#0EA5E9, #111827"
+  contentLanguage  String   @default("es")
+  mainPlatforms    String[] @default([]) // instagram | facebook | tiktok | youtube
+  preferredCtas    String?
+  websiteUrl       String?
+  whatsapp         String?
+  contactEmail     String?
+  businessGoals    String? // objetivos comerciales
+  conversionGoal   String? // qué cuenta como conversión
+
   // AI provider chosen by this business's owner, with their own API key
   // (encrypted, see lib/crypto.ts) — never a key belonging to the platform.
   aiProvider        String?

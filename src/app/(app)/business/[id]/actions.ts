@@ -8,6 +8,7 @@ import { encryptSecret, decryptSecret, encryptToken, decryptToken } from "@/lib/
 import { generateCampaign, generateStoryboard, generateImagePrompt, type AiProvider, type GeneratedCampaign } from "@/lib/ai";
 import { fetchPages, publishPagePhoto } from "@/lib/meta";
 import { generateImage } from "@/lib/images";
+import { toAiBusiness } from "@/lib/businessContext";
 import { generatePlaceholderImage } from "@/lib/placeholderImage";
 import { storageKey, localPath, ensureParentDir, saveBuffer, readStored } from "@/lib/storage";
 
@@ -188,15 +189,7 @@ export async function createCampaign(
       provider: business.aiProvider as AiProvider,
       apiKey,
       model: business.aiModel,
-      business: {
-        name: business.name,
-        industry: business.industry,
-        description: business.description,
-        targetAudience: business.targetAudience,
-        location: business.location,
-        objective: business.objective,
-        products: business.products,
-      },
+      business: toAiBusiness(business),
       insightSummary,
     });
 
@@ -258,15 +251,7 @@ export async function createCampaignFromObjective(businessId: string, formData: 
       provider: business.aiProvider as AiProvider,
       apiKey,
       model: business.aiModel,
-      business: {
-        name: business.name,
-        industry: business.industry,
-        description: business.description,
-        targetAudience: business.targetAudience,
-        location: business.location,
-        objective: business.objective,
-        products: business.products,
-      },
+      business: toAiBusiness(business),
       insightSummary: goal,
       briefKind: "goal",
     });
@@ -342,15 +327,7 @@ export async function createStoryboard(
       provider: business.aiProvider as AiProvider,
       apiKey,
       model: business.aiModel,
-      business: {
-        name: business.name,
-        industry: business.industry,
-        description: business.description,
-        targetAudience: business.targetAudience,
-        location: business.location,
-        objective: business.objective,
-        products: business.products,
-      },
+      business: toAiBusiness(business),
       concepto: campaignContent.concepto,
       oferta: campaignContent.oferta,
       cta: campaignContent.cta,
@@ -434,15 +411,7 @@ export async function createCampaignImage(
       provider: business.aiProvider as AiProvider,
       apiKey: textApiKey,
       model: business.aiModel,
-      business: {
-        name: business.name,
-        industry: business.industry,
-        description: business.description,
-        targetAudience: business.targetAudience,
-        location: business.location,
-        objective: business.objective,
-        products: business.products,
-      },
+      business: toAiBusiness(business),
       concepto: campaignContent.concepto,
       oferta: campaignContent.oferta,
       hook: item.hook,

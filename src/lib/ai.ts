@@ -1,3 +1,5 @@
+import { formatBusinessContext, languageInstruction, type AiBusinessContext } from "@/lib/businessContext";
+
 export type AiProvider = "anthropic" | "openai";
 
 export type GeneratedCampaign = {
@@ -9,15 +11,9 @@ export type GeneratedCampaign = {
   cta: string;
 };
 
-type CampaignBusinessInput = {
-  name: string;
-  industry: string;
-  description: string;
-  targetAudience: string;
-  location: string;
-  objective: string;
-  products: { name: string }[];
-};
+// Full business profile — built once by lib/businessContext.ts and rendered
+// into every prompt by formatBusinessContext().
+type CampaignBusinessInput = AiBusinessContext;
 
 const DEFAULT_MODELS: Record<AiProvider, string> = {
   anthropic: "claude-sonnet-5",
@@ -33,24 +29,19 @@ function buildPrompt(
   insightSummary: string,
   briefKind: "insight" | "goal"
 ): string {
-  const productNames = business.products.map((p) => p.name).join(", ") || "sus productos/servicios";
   const briefLabel = briefKind === "goal" ? "Lo que el dueño del negocio quiere lograr" : "Oportunidad detectada";
   const basisPhrase =
     briefKind === "goal"
       ? "basada en lo que el dueño del negocio te pide directamente."
       : "basada en la oportunidad detectada.";
 
-  return `Eres un estratega de marketing experto en negocios locales. Genera una propuesta de campaña de marketing en español para el siguiente negocio, ${basisPhrase}
+  return `Eres un estratega de marketing experto en negocios locales. Genera una propuesta de campaña de marketing para el siguiente negocio, ${basisPhrase}
 
-Negocio: ${business.name}
-Industria: ${business.industry}
-Qué vende: ${business.description}
-Productos/servicios: ${productNames}
-Audiencia objetivo: ${business.targetAudience}
-Ubicación: ${business.location}
-Objetivo de negocio: ${business.objective}
+${formatBusinessContext(business)}
 
 ${briefLabel}: ${insightSummary}
+
+${languageInstruction(business)}
 
 Responde ÚNICAMENTE con un objeto JSON válido (sin texto adicional, sin markdown, sin comentarios) con esta forma exacta:
 {
@@ -212,10 +203,12 @@ function buildStoryboardPrompt(input: {
   hook: string;
   formato: string;
 }): string {
-  return `Eres un guionista experto en contenido de video corto para redes sociales (Reels, TikTok, Stories). Crea un storyboard/guion detallado en español para la siguiente pieza de contenido, parte de una campaña de marketing.
+  return `Eres un guionista experto en contenido de video corto para redes sociales (Reels, TikTok, Stories). Crea un storyboard/guion detallado para la siguiente pieza de contenido, parte de una campaña de marketing. El dueño del negocio lo grabará con su celular, así que cada escena debe decir con claridad qué mostrar, qué decir y cómo grabarlo.
 
-Negocio: ${input.business.name}
-Industria: ${input.business.industry}
+${formatBusinessContext(input.business)}
+
+${languageInstruction(input.business)}
+
 Concepto de campaña: ${input.concepto}
 Oferta: ${input.oferta}
 CTA de campaña: ${input.cta}
@@ -305,15 +298,16 @@ function buildVideoAnalysisPrompt(input: {
 
   return `Eres un editor de video experto en contenido corto para redes sociales (Reels, TikTok). Te doy la transcripción completa de un video grabado por un negocio, con marcas de tiempo en segundos.
 
-Negocio: ${input.business.name}
-Industria: ${input.business.industry}
+${formatBusinessContext(input.business)}
+
+${languageInstruction(input.business)}
 
 Duración total del video: ${input.totalDurationSeconds.toFixed(1)} segundos
 
 Transcripción con tiempos:
 ${transcriptLines || "(sin diálogo detectado)"}
 
-Elige el mejor fragmento continuo de este video para convertirlo en un clip corto vertical, y sugiere un hook y un CTA en español para acompañarlo.
+Elige el mejor fragmento continuo de este video para convertirlo en un clip corto vertical, y sugiere un hook y un CTA para acompañarlo (en el idioma del contenido indicado arriba).
 
 Responde ÚNICAMENTE con un objeto JSON válido (sin texto adicional, sin markdown) con esta forma exacta:
 {
@@ -383,8 +377,9 @@ function buildImagePromptPrompt(input: {
 }): string {
   return `Eres un director de arte experto en publicidad para redes sociales. Escribe un prompt en INGLÉS, detallado y vívido, para un modelo de generación de imágenes (tipo DALL-E), que produzca una imagen publicitaria para la siguiente pieza de contenido.
 
-Business: ${input.business.name}
-Industry: ${input.business.industry}
+Business context (Spanish):
+${formatBusinessContext(input.business)}
+
 Campaign concept: ${input.concepto}
 Offer: ${input.oferta}
 Content hook: "${input.hook}"

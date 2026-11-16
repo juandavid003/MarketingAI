@@ -18,3 +18,24 @@ export function Select({ className, ...props }: React.ComponentProps<"select">) 
 export function Label({ className, ...props }: React.ComponentProps<"label">) {
   return <label className={cn("text-sm font-medium", className)} {...props} />;
 }
+
+// Label + control + optional hint, the standard vertical form row.
+export function FormField({
+  label,
+  htmlFor,
+  hint,
+  children,
+}: {
+  label: string;
+  htmlFor: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1">
+      <Label htmlFor={htmlFor}>{label}</Label>
+      {children}
+      {hint && <p className="text-xs text-muted">{hint}</p>}
+    </div>
+  );
+}
