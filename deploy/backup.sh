@@ -5,7 +5,11 @@
 # backups (or copy these files off-site) so a lost droplet isn't lost data.
 set -euo pipefail
 cd /opt/marketingai
-set -a; source .env; set +a
+# Read only what we need: sourcing the whole .env breaks on values like
+# EMAIL_FROM="Name <a@b.c>" (bash treats < > as redirections).
+env_get() { grep -E "^$1=" .env | head -1 | cut -d= -f2-; }
+POSTGRES_USER="$(env_get POSTGRES_USER)"
+POSTGRES_DB="$(env_get POSTGRES_DB)"
 
 stamp=$(date +%Y%m%d-%H%M%S)
 docker compose exec -T db pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --no-owner \
