@@ -144,12 +144,15 @@ model VideoAsset {
   business         Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
   businessId       String
   originalFilename String
-  originalPath     String
+  originalPath     String // storage key (lib/storage.ts); legacy rows: "/uploads/..."
   durationSeconds  Float?
   status           String   @default("uploaded") // uploaded | transcribing | analyzing | rendering | ready | error
   transcript       String? // JSON: { segments: [{ start, end, text }] }
   errorMessage     String?
   createdAt        DateTime @default(now())
+  // Bumped on every status change; lets the UI detect a job interrupted by a
+  // server restart (see isStalled in lib/jobs/processVideo.ts).
+  updatedAt        DateTime @default(now()) @updatedAt
 
   versions VideoVersion[]
 }

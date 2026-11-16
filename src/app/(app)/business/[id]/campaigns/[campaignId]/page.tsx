@@ -4,6 +4,7 @@ import { Flame, CheckCircle2, Play, Pause, TrendingUp, ExternalLink } from "luci
 import { prisma } from "@/lib/prisma";
 import { requireBusinessAccess } from "@/lib/dal";
 import { ADS_ENABLED } from "@/lib/features";
+import { fileUrl } from "@/lib/storage";
 import { decryptToken } from "@/lib/crypto";
 import type { GeneratedCampaign } from "@/lib/ai";
 import { createStoryboard, createCampaignImage, publishCampaignImage } from "../../actions";
@@ -157,7 +158,8 @@ export default async function CampaignPage({
                   {image && (
                     <div className="mt-2">
                       <Image
-                        src={image.imagePath}
+                        src={fileUrl(image.imagePath)}
+                        unoptimized
                         alt={item.hook}
                         width={256}
                         height={384}

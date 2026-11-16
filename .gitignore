@@ -57,3 +57,6 @@ skills-lock.json
 
 .vercel
 .env*
+
+# private user uploads / generated media (lib/storage.ts)
+/storage

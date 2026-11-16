@@ -9,8 +9,7 @@ import { generateCampaign, generateStoryboard, generateImagePrompt, type AiProvi
 import { fetchPages, publishPagePhoto } from "@/lib/meta";
 import { generateImage } from "@/lib/images";
 import { generatePlaceholderImage } from "@/lib/placeholderImage";
-import { mkdir, writeFile, readFile } from "fs/promises";
-import path from "path";
+import { storageKey, localPath, ensureParentDir, saveBuffer, readStored } from "@/lib/storage";
 
 // Image generation (GPT Image) is OpenAI-only. If the business already uses
 // OpenAI for text, its main key doubles as the image key; otherwise a
@@ -450,11 +449,7 @@ export async function createCampaignImage(
       formato: item.formato,
     });
 
-    const dir = path.join(process.cwd(), "public", "uploads", businessId, "campaign-images");
-    await mkdir(dir, { recursive: true });
-    const filename = `${campaignId}-${contentIndex}-${Date.now()}.png`;
-    const diskPath = path.join(dir, filename);
-    const imagePublicPath = `/uploads/${businessId}/campaign-images/${filename}`;
+    const imageKey = storageKey(businessId, "campaign-images", `${campaignId}-${contentIndex}-${Date.now()}.png`);
 
     let provider: string;
     let model: string;
@@ -462,11 +457,12 @@ export async function createCampaignImage(
     if (openaiImageKeyEncrypted) {
       const imageApiKey = decryptSecret(openaiImageKeyEncrypted);
       const imageBuffer = await generateImage(imageApiKey, imagePrompt);
-      await writeFile(diskPath, imageBuffer);
+      await saveBuffer(imageKey, imageBuffer);
       provider = "openai";
       model = "gpt-image-2";
     } else {
-      await generatePlaceholderImage(`${item.hook}\n\n${campaignContent.oferta}`, diskPath);
+      await ensureParentDir(imageKey);
+      await generatePlaceholderImage(`${item.hook}\n\n${campaignContent.oferta}`, localPath(imageKey));
       provider = "placeholder";
       model = "ffmpeg-drawtext";
     }
@@ -476,7 +472,7 @@ export async function createCampaignImage(
         campaignId,
         contentIndex,
         prompt: imagePrompt,
-        imagePath: imagePublicPath,
+        imagePath: imageKey,
         provider,
         model,
       },
@@ -553,8 +549,7 @@ export async function publishCampaignImage(
     .join("\n\n");
 
   try {
-    const imageDiskPath = path.join(process.cwd(), "public", image.imagePath);
-    const imageBuffer = await readFile(imageDiskPath);
+    const imageBuffer = await readStored(image.imagePath);
 
     const { postId, permalinkUrl } = await publishPagePhoto(
       page.facebookPageId,

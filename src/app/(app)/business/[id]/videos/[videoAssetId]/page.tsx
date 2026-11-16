@@ -3,7 +3,10 @@ import { CheckCircle2, ExternalLink, Download } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireBusinessAccess } from "@/lib/dal";
 import type { Transcript } from "@/lib/whisper";
-import { publishVideoVersion } from "../../video-actions";
+import { publishVideoVersion, retryVideoProcessing } from "../../video-actions";
+import { fileUrl } from "@/lib/storage";
+import { isStalled } from "@/lib/jobs/processVideo";
+import { AutoRefresh } from "@/components/AutoRefresh";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -67,7 +70,9 @@ export default async function VideoAssetPage({
     }
   }
 
-  const inProgress = !["ready", "error"].includes(video.status);
+  const stalled = isStalled(video);
+  const inProgress = !["ready", "error"].includes(video.status) && !stalled;
+  const canRetry = video.status === "error" || stalled;
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-12">
@@ -85,19 +90,36 @@ export default async function VideoAssetPage({
       />
 
       {inProgress && (
-        <p className="-mt-4 mb-4 text-sm text-muted">
-          Actualiza esta página en unos segundos para ver el progreso.
-        </p>
+        <>
+          <AutoRefresh />
+          <p className="-mt-4 mb-4 text-sm text-muted">
+            Estamos procesando tu video en segundo plano. Puedes salir de esta página: el
+            progreso se guarda y esta vista se actualiza sola.
+          </p>
+        </>
       )}
 
       <div className="space-y-2">
         {video.status === "error" && video.errorMessage && <Notice>{video.errorMessage}</Notice>}
+        {stalled && (
+          <Notice>
+            El procesamiento se interrumpió (probablemente por un reinicio del servidor). Puedes
+            reintentarlo.
+          </Notice>
+        )}
         {publishError && <Notice>No se pudo publicar: {publishError}</Notice>}
+        {canRetry && (
+          <form action={retryVideoProcessing.bind(null, id, videoAssetId)}>
+            <Button type="submit" size="sm" variant="secondary">
+              Reintentar procesamiento
+            </Button>
+          </form>
+        )}
       </div>
 
       <div className="mt-6">
         <p className="text-sm font-medium text-muted">Video original</p>
-        <video src={video.originalPath} controls className="mt-2 w-full rounded-lg border border-border" />
+        <video src={fileUrl(video.originalPath)} controls className="mt-2 w-full rounded-lg border border-border" />
       </div>
 
       {transcript && (
@@ -116,9 +138,9 @@ export default async function VideoAssetPage({
 
           <div className="mt-3 flex gap-4">
             <video
-              src={version.outputPath}
+              src={fileUrl(version.outputPath)}
               controls
-              poster={version.thumbnailPath ?? undefined}
+              poster={version.thumbnailPath ? fileUrl(version.thumbnailPath) : undefined}
               className="w-40 rounded-md border border-border"
             />
             <div className="flex-1 space-y-2">
@@ -135,7 +157,7 @@ export default async function VideoAssetPage({
                 </p>
               )}
               <a
-                href={version.outputPath}
+                href={`${fileUrl(version.outputPath)}${version.outputPath.startsWith("/") ? "" : "?download=1"}`}
                 download
                 className="inline-flex items-center gap-1 text-sm text-brand hover:underline"
               >

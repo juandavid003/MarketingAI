@@ -1,37 +1,33 @@
 "use server";
 
 import { randomUUID } from "crypto";
-import { mkdir, writeFile, readFile } from "fs/promises";
 import path from "path";
+import { after } from "next/server";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireBusinessAccess } from "@/lib/dal";
-import { decryptSecret, decryptToken } from "@/lib/crypto";
-import { analyzeVideoTranscript, type AiProvider } from "@/lib/ai";
-import { transcribeVideo, generateSrt } from "@/lib/whisper";
-import { getDurationSeconds, extractAudio, renderVerticalClip, extractThumbnail } from "@/lib/video";
+import { decryptToken } from "@/lib/crypto";
 import { publishPageVideo } from "@/lib/meta";
+import { storageKey, saveUpload, readStored } from "@/lib/storage";
+import { processVideoAsset, isStalled } from "@/lib/jobs/processVideo";
 
-const UPLOADS_ROOT = path.join(process.cwd(), "public", "uploads");
+const MAX_UPLOAD_BYTES = 500 * 1024 * 1024; // matches serverActions.bodySizeLimit
+const ALLOWED_EXTENSIONS = new Set([".mp4", ".mov", ".m4v", ".webm"]);
 
 export type UploadVideoState = {
   error?: string;
 };
 
+// Saves the upload and returns right away; the heavy pipeline (transcribe →
+// analyze → render) runs in the background — see lib/jobs/processVideo.ts.
 export async function uploadAndProcessVideo(
   businessId: string,
   _prevState: UploadVideoState,
   formData: FormData
 ): Promise<UploadVideoState> {
-  await requireBusinessAccess(businessId);
+  const { business } = await requireBusinessAccess(businessId);
 
-  const business = await prisma.business.findUnique({
-    where: { id: businessId },
-    include: { products: true },
-  });
-  if (!business) {
-    return { error: "Negocio no encontrado." };
-  }
   if (!business.aiProvider || !business.aiApiKeyEncrypted) {
     return { error: "Configura tu proveedor de IA antes de editar video." };
   }
@@ -46,109 +42,56 @@ export async function uploadAndProcessVideo(
   if (!file.type.startsWith("video/")) {
     return { error: "El archivo debe ser un video." };
   }
+  if (file.size > MAX_UPLOAD_BYTES) {
+    return { error: "El video supera el máximo de 500 MB." };
+  }
 
+  const rawExt = path.extname(file.name).toLowerCase();
+  const ext = ALLOWED_EXTENSIONS.has(rawExt) ? rawExt : ".mp4";
   const videoAssetId = randomUUID();
-  const dir = path.join(UPLOADS_ROOT, businessId, videoAssetId);
-  await mkdir(dir, { recursive: true });
+  const originalKey = storageKey(businessId, "videos", videoAssetId, `original${ext}`);
 
-  const ext = path.extname(file.name) || ".mp4";
-  const originalDiskPath = path.join(dir, `original${ext}`);
-  const originalPublicPath = `/uploads/${businessId}/${videoAssetId}/original${ext}`;
-
-  const buffer = Buffer.from(await file.arrayBuffer());
-  await writeFile(originalDiskPath, buffer);
+  try {
+    await saveUpload(originalKey, file);
+  } catch (err) {
+    console.error("[uploadAndProcessVideo] save failed", err);
+    return { error: "No se pudo guardar el video. Intenta de nuevo." };
+  }
 
   await prisma.videoAsset.create({
     data: {
       id: videoAssetId,
       businessId,
       originalFilename: file.name,
-      originalPath: originalPublicPath,
+      originalPath: originalKey,
       status: "uploaded",
     },
   });
 
-  try {
-    const durationSeconds = await getDurationSeconds(originalDiskPath);
-    await prisma.videoAsset.update({
-      where: { id: videoAssetId },
-      data: { durationSeconds, status: "transcribing" },
-    });
-
-    const transcriptionKey = decryptSecret(business.openaiTranscriptionKeyEncrypted);
-    const audioPath = path.join(dir, "audio.mp3");
-    await extractAudio(originalDiskPath, audioPath);
-    const transcript = await transcribeVideo(transcriptionKey, audioPath);
-
-    await prisma.videoAsset.update({
-      where: { id: videoAssetId },
-      data: { transcript: JSON.stringify(transcript), status: "analyzing" },
-    });
-
-    const aiKey = decryptSecret(business.aiApiKeyEncrypted);
-    const { content: analysis } = await analyzeVideoTranscript({
-      provider: business.aiProvider as AiProvider,
-      apiKey: aiKey,
-      model: business.aiModel,
-      business: {
-        name: business.name,
-        industry: business.industry,
-        description: business.description,
-        targetAudience: business.targetAudience,
-        location: business.location,
-        objective: business.objective,
-        products: business.products,
-      },
-      transcriptSegments: transcript.segments,
-      totalDurationSeconds: durationSeconds,
-    });
-
-    await prisma.videoAsset.update({ where: { id: videoAssetId }, data: { status: "rendering" } });
-
-    const srtPath = path.join(dir, "clip.srt");
-    await writeFile(srtPath, generateSrt(transcript.segments, analysis.startSeconds));
-
-    const outputDiskPath = path.join(dir, "version-1.mp4");
-    const outputPublicPath = `/uploads/${businessId}/${videoAssetId}/version-1.mp4`;
-    await renderVerticalClip({
-      inputPath: originalDiskPath,
-      outputPath: outputDiskPath,
-      startSeconds: analysis.startSeconds,
-      endSeconds: analysis.endSeconds,
-      srtPath,
-    });
-
-    const thumbnailDiskPath = path.join(dir, "thumbnail.jpg");
-    const thumbnailPublicPath = `/uploads/${businessId}/${videoAssetId}/thumbnail.jpg`;
-    await extractThumbnail({
-      inputPath: outputDiskPath,
-      outputPath: thumbnailDiskPath,
-      atSeconds: Math.min(1, analysis.endSeconds - analysis.startSeconds),
-    });
-
-    await prisma.videoVersion.create({
-      data: {
-        videoAssetId,
-        label: "Versión 1",
-        outputPath: outputPublicPath,
-        thumbnailPath: thumbnailPublicPath,
-        hook: analysis.hook,
-        cta: analysis.cta,
-        startSeconds: analysis.startSeconds,
-        endSeconds: analysis.endSeconds,
-      },
-    });
-
-    await prisma.videoAsset.update({ where: { id: videoAssetId }, data: { status: "ready" } });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Error desconocido al procesar el video.";
-    await prisma.videoAsset.update({
-      where: { id: videoAssetId },
-      data: { status: "error", errorMessage: message },
-    });
-  }
+  after(() => processVideoAsset(videoAssetId));
 
   redirect(`/business/${businessId}/videos/${videoAssetId}`);
+}
+
+// Re-runs the pipeline for a video that failed or got stuck (e.g. the server
+// restarted mid-job). Safe to repeat: every step overwrites its outputs.
+export async function retryVideoProcessing(businessId: string, videoAssetId: string) {
+  await requireBusinessAccess(businessId);
+
+  const asset = await prisma.videoAsset.findUnique({ where: { id: videoAssetId } });
+  if (!asset || asset.businessId !== businessId) {
+    redirect(`/business/${businessId}`);
+  }
+
+  if (asset.status === "error" || isStalled(asset)) {
+    await prisma.videoAsset.update({
+      where: { id: videoAssetId },
+      data: { status: "uploaded", errorMessage: null },
+    });
+    after(() => processVideoAsset(videoAssetId));
+  }
+
+  revalidatePath(`/business/${businessId}/videos/${videoAssetId}`);
 }
 
 export async function publishVideoVersion(
@@ -169,13 +112,18 @@ export async function publishVideoVersion(
   }
 
   const [version, page] = await Promise.all([
-    prisma.videoVersion.findUnique({ where: { id: versionId } }),
+    prisma.videoVersion.findUnique({
+      where: { id: versionId },
+      include: { videoAsset: { select: { businessId: true } } },
+    }),
     prisma.socialPage.findFirst({
       where: { facebookPageId, connection: { businessId } },
     }),
   ]);
 
-  if (!version || version.videoAssetId !== videoAssetId) {
+  // Both checks matter: the version must belong to this video AND the video
+  // to this business — otherwise another tenant's clip could be published.
+  if (!version || version.videoAssetId !== videoAssetId || version.videoAsset.businessId !== businessId) {
     redirect(`/business/${businessId}/videos/${videoAssetId}`);
   }
   if (!page) {
@@ -189,8 +137,7 @@ export async function publishVideoVersion(
   const caption = [version.hook, version.cta].filter(Boolean).join("\n\n");
 
   try {
-    const videoDiskPath = path.join(process.cwd(), "public", version.outputPath);
-    const videoBuffer = await readFile(videoDiskPath);
+    const videoBuffer = await readStored(version.outputPath);
 
     const { videoId, permalinkUrl } = await publishPageVideo(
       page.facebookPageId,

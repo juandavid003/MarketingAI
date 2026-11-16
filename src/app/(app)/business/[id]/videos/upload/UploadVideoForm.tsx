@@ -36,13 +36,13 @@ export default function UploadVideoForm({ businessId }: { businessId: string }) 
 
       {pending && (
         <p className="rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-          Subiendo y procesando tu video (transcripción + edición). Esto puede tardar uno o dos
-          minutos — no cierres esta pestaña.
+          Subiendo tu video — no cierres esta pestaña hasta que termine la subida. La edición
+          con IA sigue después en segundo plano.
         </p>
       )}
 
       <Button type="submit" disabled={pending}>
-        {pending ? "Procesando..." : "Subir y editar con IA"}
+        {pending ? "Subiendo..." : "Subir y editar con IA"}
       </Button>
     </form>
   );
