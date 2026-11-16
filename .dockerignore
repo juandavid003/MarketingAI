@@ -1,0 +1,16 @@
+node_modules
+.next
+.git
+.env
+.env.*
+storage
+public/uploads
+dev.db
+dev.db-journal
+*.tsbuildinfo
+.vercel
+.claude
+.agents
+.windsurf
+src/generated
+deploy/.env*

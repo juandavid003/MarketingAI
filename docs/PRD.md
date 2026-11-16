@@ -134,7 +134,7 @@ Que un negocio pequeño, de cualquier industria, publique contenido útil cada s
 | Veracidad | Cada métrica mostrada indica su fuente (plataforma / registrada manualmente / calculada). Prohibido mostrar cifras de ejemplo como reales. |
 | Rendimiento | Páginas principales < 2 s con datos en caché; procesamiento de video asíncrono, nunca bloquea la petición. |
 | Disponibilidad | Un trabajo interrumpido (reinicio del servidor) queda marcado y se puede reintentar. |
-| Costo | Infra base < USD 30/mes para los primeros 10 clientes (Railway + Postgres + volumen). IA la paga el cliente. |
+| Costo | Infra base ≈ USD 12/mes (un droplet de DigitalOcean con app + Postgres) para los primeros clientes; +USD 2–3 si se activan backups del droplet. IA la paga el cliente. |
 | Idioma | UI en español. Contenido generado en el idioma configurado del negocio. |
 | Responsivo | Usable en celular (el dueño revisa y aprueba desde el teléfono). |
 | Privacidad | Solo datos públicos/autorizados de competidores. Clics registrados sin IP ni datos personales identificables. |

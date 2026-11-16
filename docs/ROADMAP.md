@@ -6,7 +6,7 @@
 - Congelar la pauta (`FEATURE_ADS`), dejar de pedir `ads_management`.
 - Documentación en `/docs`.
 
-## Sprint 1 — Cimientos honestos y seguros ✅ (código listo 2026-11-16; falta el Volumen en Railway)
+## Sprint 1 — Cimientos honestos y seguros ✅ (código listo 2026-11-16; producción migrando a DigitalOcean)
 Objetivo: nada inventado, nada expuesto, nada que se pierda en un despliegue.
 
 Verificado con una prueba de navegador real (23/23) contra una base de datos local desechable: perfil, estado vacío honesto, subida y procesamiento en segundo plano, reintento, archivos privados (dueño 200/206, otro cliente 404, anónimo 401) y aislamiento entre negocios.
@@ -19,7 +19,7 @@ Verificado con una prueba de navegador real (23/23) contra una base de datos loc
 | Procesamiento de video en segundo plano (`after()`), página con estado que se refresca, reintento | M |
 | Perfil del negocio ampliado + página para editarlo | M |
 | `lib/businessContext.ts`: un solo contexto de negocio para todos los prompts | S |
-| **Acción de infraestructura (fundador):** crear Volumen en Railway y `STORAGE_DIR` | S |
+| **Infraestructura:** migración a DigitalOcean (droplet + Docker + GitHub Actions), ver `deploy/README.md` | M |
 
 ## Sprint 2 — Leads y resultados (diferenciador)
 | Tarea | Complejidad |

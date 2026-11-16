@@ -1,0 +1,24 @@
+# Automatic HTTPS (Let's Encrypt) for APP_DOMAIN, reverse-proxied to Next.
+{$APP_DOMAIN} {
+	encode zstd gzip
+
+	# Video uploads: matches serverActions.bodySizeLimit (500 MB) plus overhead.
+	request_body {
+		max_size 520MB
+	}
+
+	reverse_proxy app:3000 {
+		# Uploads and the after() pipeline can take a while.
+		transport http {
+			read_timeout 10m
+			write_timeout 10m
+		}
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+}

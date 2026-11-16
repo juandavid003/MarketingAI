@@ -64,7 +64,13 @@ function colorForText(text: string): string {
   return hslToHex(hue, 55, 32);
 }
 
-const FONT_PATH = "C:\\Windows\\Fonts\\segoeui.ttf";
+// Windows dev machines have Segoe UI; the Linux server image installs
+// fonts-dejavu-core (see Dockerfile). FONT_PATH env overrides both.
+const FONT_PATH =
+  process.env.FONT_PATH ||
+  (process.platform === "win32"
+    ? "C:\\Windows\\Fonts\\segoeui.ttf"
+    : "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
 
 // Renders a simple text-on-background PNG locally via ffmpeg's drawtext
 // filter — no external AI API involved. Used as a stand-in for real

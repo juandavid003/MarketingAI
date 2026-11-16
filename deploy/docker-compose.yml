@@ -1,0 +1,61 @@
+# Production stack on one DigitalOcean droplet: app + Postgres + Caddy (HTTPS).
+# Lives at /opt/marketingai on the droplet next to a .env file (see
+# deploy/env.example). GitHub Actions updates APP_IMAGE and runs
+# `docker compose pull app && docker compose up -d` on every push to main.
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # Not published to the internet; only the app container reaches it.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    # Small droplet: keep Postgres modest.
+    command: ["postgres", "-c", "shared_buffers=128MB", "-c", "max_connections=40"]
+
+  app:
+    image: ${APP_IMAGE}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      STORAGE_DIR: /data/storage
+      BETTER_AUTH_URL: https://${APP_DOMAIN}
+      META_REDIRECT_URI: https://${APP_DOMAIN}/api/auth/meta/callback
+    volumes:
+      - appdata:/data
+    depends_on:
+      db:
+        condition: service_healthy
+    # Lets in-flight requests and after() video jobs finish on redeploy.
+    stop_grace_period: 60s
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  pgdata:
+  appdata:
+  caddy_data:
+  caddy_config:

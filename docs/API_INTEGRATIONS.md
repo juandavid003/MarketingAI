@@ -57,7 +57,7 @@
 
 | Herramienta | Uso | Notas |
 |---|---|---|
-| ffmpeg / ffprobe | Duración, audio, recorte, 9:16, subtítulos quemados, miniaturas; Sprint 3: silencios (`silencedetect`) | Instalado en el contenedor de Railway. |
+| ffmpeg / ffprobe | Duración, audio, recorte, 9:16, subtítulos quemados, miniaturas; Sprint 3: silencios (`silencedetect`) | Instalado en la imagen Docker (Dockerfile). |
 
 ## Flujo alternativo cuando no hay integración
 
