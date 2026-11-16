@@ -21,7 +21,7 @@ Mientras no haya dominio propio se usa **sslip.io**: para la IP `164.90.1.2` el 
 3. **Configuración:** copiar `docker-compose.yml`, `Caddyfile`, `backup.sh` a `/opt/marketingai` y crear `/opt/marketingai/.env` desde `env.example`. **`ENCRYPTION_SECRET` debe ser el mismo de hoy.**
 4. **Datos:** `docker compose up -d db` → `OLD_DATABASE_URL=... bash migrate-data.sh` (copia todo desde Prisma Postgres) → `docker compose up -d`.
 5. **Backups:** cron diario con `backup.sh` (14 días). Recomendado además: backups de droplet de DigitalOcean (+20 % del precio) para tener copia fuera del servidor.
-6. **GitHub:** repo privado; secrets `DROPLET_HOST`, `DROPLET_SSH_KEY`, `GHCR_READ_TOKEN`.
+6. **GitHub:** repo privado `juandavid003/MarketingAI`; secrets `DROPLET_HOST`, `DROPLET_SSH_KEY` (la imagen se descarga con el token temporal del workflow).
 7. **Meta:** Dominios de la app = `APP_DOMAIN`; URI de redirección OAuth = `https://APP_DOMAIN/api/auth/meta/callback`; actualizar las URLs de privacidad y términos.
 8. **Apagar Railway y Prisma Postgres** solo después de verificar que todo funciona en el droplet.
 

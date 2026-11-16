@@ -5,7 +5,8 @@
 #   DROPLET_HOST      droplet public IP
 #   DROPLET_SSH_KEY   private key whose public half is in the droplet's
 #                     /root/.ssh/authorized_keys (a key used only for deploys)
-#   GHCR_READ_TOKEN   GitHub token with read:packages, so the droplet can pull
+# The droplet pulls the image with this job's short-lived GITHUB_TOKEN, so no
+# long-lived registry token is stored anywhere.
 name: Deploy
 
 on:
@@ -56,6 +57,9 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
     steps:
       - uses: actions/checkout@v4
 
@@ -79,9 +83,10 @@ jobs:
             set -e
             cd /opt/marketingai
             chmod +x backup.sh
-            echo '${{ secrets.GHCR_READ_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
+            echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
             sed -i "s|^APP_IMAGE=.*|APP_IMAGE=${{ needs.build.outputs.image }}|" .env
             docker compose pull app
+            docker logout ghcr.io
             docker compose up -d --remove-orphans
             docker image prune -f
             # Fail the deploy if the app doesn't come up.
