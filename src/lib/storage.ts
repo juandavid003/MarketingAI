@@ -21,7 +21,11 @@ import { pipeline } from "stream/promises";
 // Moving to R2/S3 later means swapping these functions (and downloading to a
 // temp dir before ffmpeg), not touching callers.
 
-const STORAGE_ROOT = path.resolve(process.env.STORAGE_DIR ?? path.join(process.cwd(), "storage"));
+// turbopackIgnore: runtime-only path; without it the build traces the whole
+// project into the server bundle.
+const STORAGE_ROOT = path.resolve(
+  /*turbopackIgnore: true*/ process.env.STORAGE_DIR ?? path.join(process.cwd(), "storage")
+);
 
 const KEY_PATTERN = /^[A-Za-z0-9_-]+(\/[A-Za-z0-9._-]+)+$/;
 

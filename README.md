@@ -458,6 +458,24 @@ contraseña) y la aprobación de Meta de los pasos 9-11 de arriba.
     OpenAI) — esto ya funciona hoy tal cual, no requiere que hagas nada por cada cliente
     nuevo, y ningún cliente comparte credenciales ni cuota con otro.
 
+15.- Almacenamiento persistente de videos e imágenes (Railway Volume) — HAZLO ANTES del
+    próximo despliegue. Los archivos ya no están en `public/uploads` (eran públicos y se
+    borraban en cada deploy); ahora son privados y viven en `STORAGE_DIR`:
+   - Railway → proyecto "ai-growth-os" → servicio "web" → **Settings → Volumes → New Volume**,
+     mount path `/data`.
+   - Variables del servicio: `STORAGE_DIR=/data/storage`.
+   - Sin el volumen, la app funciona pero los archivos se pierden en cada despliegue.
+   - Las migraciones nuevas (`VideoAsset.updatedAt`, perfil del negocio) se aplican solas al
+     arrancar (`prisma migrate deploy`).
+
+16.- ffmpeg en local (Windows): en `.env`, usa barras normales en las rutas, por ejemplo
+    `FFMPEG_PATH="C:/Users/.../bin/ffmpeg.exe"`. Con barras invertidas dobles dentro de comillas, el cargador de
+    variables de Next interpreta secuencias como barra-invertida + r y la ruta se rompe (ffprobe ENOENT).
+    Si ffmpeg está en el PATH, puedes borrar `FFMPEG_PATH`/`FFPROBE_PATH`.
+
+17.- Pauta (Meta Ads) congelada: no definas `FEATURE_ADS`. Documentación completa del producto
+    en `docs/`.
+
 ## Casos de uso para App Review (copiar y pegar en el formulario de Meta, ajustar si hace falta)
 
 **pages_manage_posts**
