@@ -25,6 +25,17 @@ Mientras no haya dominio propio se usa **sslip.io**: para la IP `164.90.1.2` el 
 7. **Meta:** Dominios de la app = `APP_DOMAIN`; URI de redirección OAuth = `https://APP_DOMAIN/api/auth/meta/callback`; actualizar las URLs de privacidad y términos.
 8. **Apagar Railway y Prisma Postgres** solo después de verificar que todo funciona en el droplet.
 
+## Desarrollo local contra la base de producción
+
+Hay una sola base de datos: la del droplet. Postgres solo escucha en `127.0.0.1` del droplet; desde tu PC se llega por túnel SSH:
+
+```bash
+npm run db:tunnel     # deja esta terminal abierta (localhost:5433 -> Postgres del droplet)
+npm run dev           # en otra terminal; .env apunta a localhost:5433
+```
+
+Todo lo que hagas en local escribe en producción.
+
 ## Operación
 
 ```bash
