@@ -3,6 +3,7 @@ import Image from "next/image";
 import { Flame, CheckCircle2, Play, Pause, TrendingUp, ExternalLink } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireBusinessAccess } from "@/lib/dal";
+import { ADS_ENABLED } from "@/lib/features";
 import type { GeneratedCampaign } from "@/lib/ai";
 import { createStoryboard, createCampaignImage, publishCampaignImage } from "../../actions";
 import { launchAdCampaign, activateAdCampaign, pauseAdCampaign, updateAdBudget } from "../../ads-actions";
@@ -84,7 +85,7 @@ export default async function CampaignPage({
   const adCampaignByIndex = new Map(campaign.adCampaigns.map((ac) => [ac.contentIndex, ac]));
   const activeAdCampaigns = campaign.adCampaigns.filter((ac) => ac.status === "active");
   const adInsightsById = new Map<string, AdSetInsights | null>();
-  if (activeAdCampaigns.length > 0 && business.socialConnection) {
+  if (ADS_ENABLED && activeAdCampaigns.length > 0 && business.socialConnection) {
     const accessToken = business.socialConnection.accessToken;
     await Promise.all(
       activeAdCampaigns.map(async (ac) => {
@@ -239,7 +240,7 @@ export default async function CampaignPage({
                     </div>
                   )}
 
-                  {published && (
+                  {published && ADS_ENABLED && (
                     <AdsSection
                       businessId={id}
                       campaignId={campaignId}

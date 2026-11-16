@@ -45,7 +45,7 @@ export default async function Home() {
           <Feature
             icon={Rocket}
             title="Ejecuta"
-            description="Publica en tus redes y pauta en Meta Ads con un clic — cada campaña empieza pausada, tú decides."
+            description="Convierte tus videos en clips listos para publicar y llévalos a tus redes con tu aprobación."
           />
           <Feature
             icon={LineChart}

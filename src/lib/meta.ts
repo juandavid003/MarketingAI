@@ -1,3 +1,5 @@
+import { ADS_ENABLED } from "@/lib/features";
+
 const GRAPH_VERSION = process.env.META_GRAPH_VERSION ?? "v21.0";
 
 function requireEnv(name: string): string {
@@ -21,13 +23,16 @@ function requireEnv(name: string): string {
 // on ad accounts the connecting user administers (Standard Access, same deal
 // as pages_manage_posts) — a business running ads through someone else's ad
 // account would need Advanced Access + Business Verification.
+//
+// ads_management is only requested while paid ads are enabled (frozen for
+// now — see lib/features.ts), so App Review doesn't need to cover it yet.
 export const META_SCOPES = [
   "pages_show_list",
   "pages_read_engagement",
   "pages_manage_posts",
   "business_management",
   "instagram_basic",
-  "ads_management",
+  ...(ADS_ENABLED ? ["ads_management"] : []),
 ].join(",");
 
 export function buildMetaAuthUrl(state: string): string {

@@ -406,7 +406,10 @@ ahi configuras la configuracion de la api con inicio de sesion
 11.- App Review para los permisos avanzados (para publicar/pautar en cuentas de clientes,
     no solo en la tuya propia):
    - App Review → Permisos y funciones → busca y pide cada uno: pages_manage_posts,
-     pages_read_engagement, instagram_basic, business_management, ads_management
+     pages_read_engagement, instagram_basic, business_management
+   - NO pidas ads_management por ahora: la pauta está congelada (ver
+     docs/MVP_SCOPE.md) y la app ya no solicita ese permiso. Se reactiva con
+     `FEATURE_ADS=true` cuando se retome.
    - Por cada permiso: pega el texto de caso de uso correspondiente (abajo) y sube una
      grabación de pantalla mostrando exactamente ese permiso en acción en la app corriendo
      (npm run dev)
@@ -479,7 +482,7 @@ mostrarlas en su panel de rendimiento.
 Se usa para listar las Páginas de Facebook y cuentas publicitarias que el usuario administra en
 su Business Manager, para que elija cuál conectar a su negocio dentro de la app.
 
-**ads_management**
+**ads_management** — CONGELADO, no lo incluyas en la solicitud actual (se guarda el texto para cuando se retome la pauta)
 Cuando el dueño del negocio ya publicó una pieza de contenido de forma orgánica y quiere
 convertirla en anuncio pagado, hace clic en "Crear campaña en Meta Ads" e ingresa un presupuesto
 diario. La app crea una campaña, conjunto de anuncios y anuncio en su cuenta publicitaria,

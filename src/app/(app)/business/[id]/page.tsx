@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireBusinessAccess } from "@/lib/dal";
+import { ADS_ENABLED } from "@/lib/features";
 import { OBJECTIVES } from "@/lib/constants";
 import { generateInsights, type Insight } from "@/lib/insights";
 import { getPageActivity, type PageActivity } from "@/lib/pageActivity";
@@ -76,7 +77,7 @@ export default async function BusinessProfilePage({
 
   let availableAdAccounts: AdAccount[] = [];
   let adAccountsError: string | null = null;
-  if (business.socialConnection && !business.socialConnection.adAccount) {
+  if (ADS_ENABLED && business.socialConnection && !business.socialConnection.adAccount) {
     try {
       availableAdAccounts = await fetchAdAccounts(business.socialConnection.accessToken);
     } catch (err) {
@@ -128,7 +129,7 @@ export default async function BusinessProfilePage({
       <div className="mt-8 space-y-4">
         <ConnectionCard business={business} />
 
-        {business.socialConnection && (
+        {ADS_ENABLED && business.socialConnection && (
           <AdAccountCard
             businessId={business.id}
             adAccount={business.socialConnection.adAccount}
