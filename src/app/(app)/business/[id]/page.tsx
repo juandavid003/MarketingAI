@@ -18,7 +18,7 @@ import { prisma } from "@/lib/prisma";
 import { requireBusinessAccess } from "@/lib/dal";
 import { ADS_ENABLED } from "@/lib/features";
 import { OBJECTIVES } from "@/lib/constants";
-import { generateInsights, type Insight } from "@/lib/insights";
+import type { Insight } from "@/lib/insights";
 import { getPageActivity, type PageActivity } from "@/lib/pageActivity";
 import { generateRealInsights } from "@/lib/realInsights";
 import { fetchAdAccounts, type AdAccount } from "@/lib/meta";
@@ -108,9 +108,7 @@ export default async function BusinessProfilePage({
   const pageActivity = business.socialConnection
     ? await getPageActivity(business.socialConnection.pages)
     : [];
-  const realInsights = generateRealInsights(pageActivity, business.products);
-  const usingRealInsights = realInsights.length > 0;
-  const insights = usingRealInsights ? realInsights : generateInsights(business);
+  const insights = generateRealInsights(pageActivity, business.products);
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
@@ -167,27 +165,39 @@ export default async function BusinessProfilePage({
         icon={Brain}
         title="Tu negocio esta semana"
         className="mt-10"
-        badge={
-          <Badge tone={usingRealInsights ? "success" : "warning"}>
-            {usingRealInsights ? "Datos en vivo" : "Vista previa"}
-          </Badge>
-        }
+        badge={insights.length > 0 ? <Badge tone="success">Datos en vivo</Badge> : undefined}
       >
-        <p className="text-sm text-muted">
-          {usingRealInsights
-            ? "Generado a partir de la actividad real de tus páginas conectadas."
-            : "Estos son ejemplos ilustrativos generados a partir de tu perfil. Conecta Facebook/Instagram para que la IA analice datos reales cada semana."}
-        </p>
-        <div className="mt-4 space-y-4">
-          {insights.map((insight) => (
-            <InsightCard
-              key={insight.title + insight.description}
-              insight={insight}
-              businessId={business.id}
-              aiConfigured={business.aiProvider != null}
-            />
-          ))}
-        </div>
+        {insights.length > 0 ? (
+          <>
+            <p className="text-sm text-muted">
+              Generado a partir de la actividad real de tus páginas conectadas.
+            </p>
+            <div className="mt-4 space-y-4">
+              {insights.map((insight) => (
+                <InsightCard
+                  key={insight.title + insight.description}
+                  insight={insight}
+                  businessId={business.id}
+                  aiConfigured={business.aiProvider != null}
+                />
+              ))}
+            </div>
+          </>
+        ) : (
+          <EmptyState
+            icon={Brain}
+            title={
+              business.socialConnection
+                ? "Todavía no hay suficientes datos para detectar oportunidades"
+                : "Conecta Facebook/Instagram para detectar oportunidades reales"
+            }
+            description={
+              business.socialConnection
+                ? "Analizamos tus publicaciones reales: cuando tengas actividad reciente en tus páginas conectadas, aquí verás qué repetir y qué mejorar. Mientras tanto, puedes pedir una campaña desde tu objetivo."
+                : "Solo mostramos oportunidades basadas en tus datos reales — nunca cifras de ejemplo. Mientras tanto, puedes pedir una campaña desde tu objetivo."
+            }
+          />
+        )}
       </Section>
 
       <Section icon={Eye} title="Competencia" className="mt-10">
