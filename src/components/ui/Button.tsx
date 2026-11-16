@@ -42,6 +42,16 @@ export function LinkButton({
   href,
   ...props
 }: React.ComponentProps<typeof Link> & { variant?: Variant; size?: Size }) {
+  // API routes aren't pages: next/link would try a client-side RSC fetch,
+  // which fails when the route redirects off-site (e.g. Meta OAuth) and shows
+  // a "Failed to fetch" error. Use a plain full-page navigation for those.
+  if (typeof href === "string" && href.startsWith("/api/")) {
+    return (
+      <a href={href} className={cn(BASE, VARIANT_CLASSES[variant], SIZE_CLASSES[size], className)}>
+        {props.children}
+      </a>
+    );
+  }
   return (
     <Link
       href={href}
