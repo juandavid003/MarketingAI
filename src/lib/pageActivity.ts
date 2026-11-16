@@ -1,4 +1,5 @@
 import { fetchPagePosts, fetchInstagramAccount, fetchInstagramMedia } from "@/lib/meta";
+import { decryptToken } from "@/lib/crypto";
 
 export type ActivityPost = {
   id: string;
@@ -49,8 +50,8 @@ async function getInstagramActivity(page: ConnectedPage): Promise<InstagramActiv
 
   try {
     const [account, media] = await Promise.all([
-      fetchInstagramAccount(page.instagramAccountId, page.pageAccessToken),
-      fetchInstagramMedia(page.instagramAccountId, page.pageAccessToken, 10),
+      fetchInstagramAccount(page.instagramAccountId, decryptToken(page.pageAccessToken)),
+      fetchInstagramMedia(page.instagramAccountId, decryptToken(page.pageAccessToken), 10),
     ]);
 
     const posts = media
@@ -89,7 +90,7 @@ export async function getPageActivity(pages: ConnectedPage[]): Promise<PageActiv
       const instagram = await getInstagramActivity(page);
 
       try {
-        const posts = await fetchPagePosts(page.facebookPageId, page.pageAccessToken, 10);
+        const posts = await fetchPagePosts(page.facebookPageId, decryptToken(page.pageAccessToken), 10);
         const mapped = posts
           .map((post) => ({
             id: post.id,

@@ -6,7 +6,7 @@ import path from "path";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireBusinessAccess } from "@/lib/dal";
-import { decryptSecret } from "@/lib/crypto";
+import { decryptSecret, decryptToken } from "@/lib/crypto";
 import { analyzeVideoTranscript, type AiProvider } from "@/lib/ai";
 import { transcribeVideo, generateSrt } from "@/lib/whisper";
 import { getDurationSeconds, extractAudio, renderVerticalClip, extractThumbnail } from "@/lib/video";
@@ -194,7 +194,7 @@ export async function publishVideoVersion(
 
     const { videoId, permalinkUrl } = await publishPageVideo(
       page.facebookPageId,
-      page.pageAccessToken,
+      decryptToken(page.pageAccessToken),
       videoBuffer,
       caption
     );

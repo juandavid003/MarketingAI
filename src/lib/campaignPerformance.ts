@@ -1,4 +1,5 @@
 import { fetchPostEngagement } from "@/lib/meta";
+import { decryptToken } from "@/lib/crypto";
 
 export type PublishedPostPerformance = {
   contentIndex: number;
@@ -31,7 +32,7 @@ export async function getCampaignPerformance(
   publishedPosts: PublishedPostInput[],
   pages: PageToken[]
 ): Promise<PublishedPostPerformance[]> {
-  const tokenByPage = new Map(pages.map((p) => [p.facebookPageId, p.pageAccessToken]));
+  const tokenByPage = new Map(pages.map((p) => [p.facebookPageId, decryptToken(p.pageAccessToken)]));
 
   const results = await Promise.all(
     publishedPosts.map(async (post): Promise<PublishedPostPerformance | null> => {

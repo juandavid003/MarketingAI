@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireBusinessAccess } from "@/lib/dal";
 import { ADS_ENABLED } from "@/lib/features";
+import { decryptToken } from "@/lib/crypto";
 import {
   fetchAdAccounts,
   searchAdGeoLocation,
@@ -44,7 +45,7 @@ export async function connectAdAccount(businessId: string, formData: FormData) {
   }
 
   try {
-    const accounts = await fetchAdAccounts(connection.accessToken);
+    const accounts = await fetchAdAccounts(decryptToken(connection.accessToken));
     const account = accounts.find((a) => a.id === adAccountId);
     if (!account) {
       redirectToBusiness(businessId, "Esa cuenta publicitaria ya no está disponible.");
@@ -128,7 +129,7 @@ export async function launchAdCampaign(
   // Meta's daily_budget is in the account's currency minor unit; assumes a
   // 2-decimal currency (true for USD, the common case for these accounts).
   const dailyBudgetCents = Math.round(dailyBudget * 100);
-  const accessToken = connection.accessToken;
+  const accessToken = decryptToken(connection.accessToken);
 
   try {
     const location = await searchAdGeoLocation(accessToken, business.location);
@@ -204,7 +205,7 @@ async function requireAdCampaignAccess(businessId: string, adCampaignId: string)
   if (!accessToken) {
     return null;
   }
-  return { adCampaign, accessToken };
+  return { adCampaign, accessToken: decryptToken(accessToken) };
 }
 
 // The only place spend can turn on — always triggered by an explicit click

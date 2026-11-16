@@ -35,3 +35,20 @@ export function decryptSecret(payload: string): string {
   ]);
   return decrypted.toString("utf8");
 }
+
+// --- Third-party access tokens (Meta user/page tokens) ---
+//
+// Same AES-256-GCM scheme as the AI keys. Tokens saved before encryption was
+// introduced are plaintext in the DB; decryptToken() passes those through
+// unchanged so existing connections keep working, and they get re-encrypted
+// the next time they're written (reconnect or "Actualizar" páginas). Meta
+// tokens never contain ':' nor match this hex layout, so detection is safe.
+const ENCRYPTED_PAYLOAD = /^[0-9a-f]{24}:[0-9a-f]{32}:[0-9a-f]+$/;
+
+export function encryptToken(token: string): string {
+  return encryptSecret(token);
+}
+
+export function decryptToken(stored: string): string {
+  return ENCRYPTED_PAYLOAD.test(stored) ? decryptSecret(stored) : stored;
+}

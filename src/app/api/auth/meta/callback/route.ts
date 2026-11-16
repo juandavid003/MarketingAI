@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { encryptToken } from "@/lib/crypto";
 import {
   exchangeCodeForToken,
   exchangeForLongLivedToken,
@@ -56,7 +57,7 @@ export async function GET(request: NextRequest) {
       create: {
         businessId,
         provider: "meta",
-        accessToken: longLived.access_token,
+        accessToken: encryptToken(longLived.access_token),
         tokenExpiresAt: expiresAt,
         metaUserId: me.id,
         metaUserName: me.name,
@@ -64,14 +65,14 @@ export async function GET(request: NextRequest) {
           create: pages.map((page) => ({
             facebookPageId: page.id,
             name: page.name,
-            pageAccessToken: page.access_token,
+            pageAccessToken: encryptToken(page.access_token),
             instagramAccountId: page.instagram_business_account?.id,
             instagramUsername: page.instagram_business_account?.username,
           })),
         },
       },
       update: {
-        accessToken: longLived.access_token,
+        accessToken: encryptToken(longLived.access_token),
         tokenExpiresAt: expiresAt,
         metaUserId: me.id,
         metaUserName: me.name,
@@ -80,7 +81,7 @@ export async function GET(request: NextRequest) {
           create: pages.map((page) => ({
             facebookPageId: page.id,
             name: page.name,
-            pageAccessToken: page.access_token,
+            pageAccessToken: encryptToken(page.access_token),
             instagramAccountId: page.instagram_business_account?.id,
             instagramUsername: page.instagram_business_account?.username,
           })),

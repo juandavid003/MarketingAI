@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireBusinessAccess } from "@/lib/dal";
-import { encryptSecret, decryptSecret } from "@/lib/crypto";
+import { encryptSecret, decryptSecret, encryptToken, decryptToken } from "@/lib/crypto";
 import { generateCampaign, generateStoryboard, generateImagePrompt, type AiProvider, type GeneratedCampaign } from "@/lib/ai";
 import { fetchPages, publishPagePhoto } from "@/lib/meta";
 import { generateImage } from "@/lib/images";
@@ -36,7 +36,7 @@ export async function refreshPages(businessId: string) {
   const connection = await prisma.socialConnection.findUnique({ where: { businessId } });
   if (!connection) return;
 
-  const pages = await fetchPages(connection.accessToken);
+  const pages = await fetchPages(decryptToken(connection.accessToken));
 
   await prisma.$transaction([
     prisma.socialPage.deleteMany({ where: { connectionId: connection.id } }),
@@ -45,7 +45,7 @@ export async function refreshPages(businessId: string) {
         connectionId: connection.id,
         facebookPageId: page.id,
         name: page.name,
-        pageAccessToken: page.access_token,
+        pageAccessToken: encryptToken(page.access_token),
         instagramAccountId: page.instagram_business_account?.id,
         instagramUsername: page.instagram_business_account?.username,
       })),
@@ -558,7 +558,7 @@ export async function publishCampaignImage(
 
     const { postId, permalinkUrl } = await publishPagePhoto(
       page.facebookPageId,
-      page.pageAccessToken,
+      decryptToken(page.pageAccessToken),
       imageBuffer,
       caption
     );

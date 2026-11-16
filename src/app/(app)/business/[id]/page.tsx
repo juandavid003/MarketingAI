@@ -17,6 +17,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { requireBusinessAccess } from "@/lib/dal";
 import { ADS_ENABLED } from "@/lib/features";
+import { decryptToken } from "@/lib/crypto";
 import { OBJECTIVES } from "@/lib/constants";
 import type { Insight } from "@/lib/insights";
 import { getPageActivity, type PageActivity } from "@/lib/pageActivity";
@@ -79,7 +80,7 @@ export default async function BusinessProfilePage({
   let adAccountsError: string | null = null;
   if (ADS_ENABLED && business.socialConnection && !business.socialConnection.adAccount) {
     try {
-      availableAdAccounts = await fetchAdAccounts(business.socialConnection.accessToken);
+      availableAdAccounts = await fetchAdAccounts(decryptToken(business.socialConnection.accessToken));
     } catch (err) {
       adAccountsError =
         err instanceof Error ? err.message : "No se pudieron leer las cuentas publicitarias.";
