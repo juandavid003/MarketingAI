@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { shortErrorMessage } from "@/lib/errors";
 import { toAiBusiness } from "@/lib/businessContext";
 import { businessAi, transcriptionKey } from "@/lib/aiCredentials";
-import { reviewTakeWithAi, type GeneratedContentPiece } from "@/lib/contentAi";
+import { reviewTakeWithAi, type GeneratedContentPiece, type PieceScene } from "@/lib/contentAi";
+import { parseStrategy, estimateSpeechSeconds } from "@/lib/distribution";
 import { ruleBasedReview, type TakeReview } from "@/lib/takeReview";
 import { transcribeVideo, type Transcript } from "@/lib/whisper";
 import { extractAudio } from "@/lib/video";
@@ -38,8 +39,19 @@ export async function processSceneTake(takeId: string): Promise<void> {
     const piece = take.contentPiece;
     const business = piece.business;
     const content = JSON.parse(piece.content) as GeneratedContentPiece;
-    const scene = content.escenas.find((s) => s.numero === take.sceneNumber);
+    let scene: PieceScene | undefined = content.escenas.find((s) => s.numero === take.sceneNumber);
     if (!scene) throw new Error("Esta escena ya no existe en el guion.");
+    if (take.slot.startsWith("hook:")) {
+      // An alternative opening: judged against the hook line it replaces.
+      const hook = parseStrategy(piece.strategy)?.hooks.find((h) => `hook:${h.codigo}` === take.slot);
+      if (!hook) throw new Error("Ese hook ya no existe en el plan de distribución.");
+      scene = {
+        ...scene,
+        queDecir: hook.queDecir || scene.queDecir,
+        textoPantalla: hook.texto,
+        duracionSegundos: hook.queDecir ? estimateSpeechSeconds(hook.queDecir) : scene.duracionSegundos,
+      };
+    }
 
     const originalDisk = localPath(take.originalPath);
     const { durationSeconds, hasAudio } = await probeMedia(originalDisk);

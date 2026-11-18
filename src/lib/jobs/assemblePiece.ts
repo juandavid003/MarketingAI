@@ -47,7 +47,7 @@ export async function assembleContentPiece(pieceId: string): Promise<void> {
       include: { takes: true, business: true },
     });
     const content = JSON.parse(piece.content) as GeneratedContentPiece;
-    const takeByScene = new Map(piece.takes.map((t) => [t.sceneNumber, t]));
+    const takeByScene = new Map(piece.takes.filter((t) => t.slot === "main").map((t) => [t.sceneNumber, t]));
 
     const missing = content.escenas.filter((s) => takeByScene.get(s.numero)?.status !== "ready");
     if (missing.length > 0) {

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { CheckCircle2, AlertTriangle, ExternalLink, Clapperboard, Loader2, Film } from "lucide-react";
+import { CheckCircle2, AlertTriangle, ExternalLink, Clapperboard, Loader2, Film, Sparkles } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireBusinessAccess } from "@/lib/dal";
 import { fileUrl } from "@/lib/storage";
@@ -33,7 +33,7 @@ export default async function ContentPiecePage({
     where: { id: pieceId, businessId: id },
     include: {
       takes: true,
-      videoAssets: { orderBy: { createdAt: "desc" }, include: { versions: true } },
+      videoAssets: { where: { variantCode: null }, orderBy: { createdAt: "desc" }, include: { versions: true } },
     },
   });
   if (!piece) notFound();
@@ -45,11 +45,12 @@ export default async function ContentPiecePage({
     notFound();
   }
   const refs: SourceRef[] = piece.sourceRefs ? (JSON.parse(piece.sourceRefs) as SourceRef[]) : [];
-  const takeByScene = new Map(piece.takes.map((t) => [t.sceneNumber, t]));
+  const mainTakes = piece.takes.filter((t) => t.slot === "main");
+  const takeByScene = new Map(mainTakes.map((t) => [t.sceneNumber, t]));
 
   const readyCount = content.escenas.filter((s) => takeByScene.get(s.numero)?.status === "ready").length;
   const allReady = readyCount === content.escenas.length;
-  const rerecordCount = piece.takes.filter((t) => parseReview(t.review)?.verdict === "rerecord").length;
+  const rerecordCount = mainTakes.filter((t) => parseReview(t.review)?.verdict === "rerecord").length;
   const assemblyStalled = isAssemblyStalled(piece);
   const assembling = piece.assemblyStatus === "assembling" && !assemblyStalled;
   const takesProcessing = piece.takes.some((t) => ["uploaded", "processing"].includes(t.status) && !isTakeStalled(t));
@@ -249,6 +250,22 @@ export default async function ContentPiecePage({
             </ul>
           )}
         </Card>
+      </section>
+
+      <section className="mt-10">
+        <Link
+          href={`/business/${id}/pieces/${pieceId}/creatives`}
+          className="block rounded-lg border border-brand/40 bg-brand-soft p-4 hover:border-brand"
+        >
+          <p className="flex items-center gap-2 font-semibold text-brand">
+            <Sparkles className="size-4" /> Distribución: un video, varios creativos →
+          </p>
+          <p className="mt-1 text-sm text-muted">
+            {piece.strategy
+              ? "Ver el plan de publicación, los hooks y CTAs alternativos y los resultados de cada creativo."
+              : "Prueba distintos hooks y llamadas a la acción con este mismo video y recibe un calendario por red para saber cuál funciona mejor."}
+          </p>
+        </Link>
       </section>
 
       <section className="mt-10">

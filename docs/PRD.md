@@ -78,6 +78,8 @@ Que un negocio pequeño, de cualquier industria, publique contenido útil cada s
 | E10 | Música de fuentes autorizadas (solo sugerencia/biblioteca con licencia) | ⬜ → posterior |
 | E11 | Descargar el video final | ✅ |
 | E12 | **Armar el video final** desde las tomas de cada escena: unir en orden, quitar silencios, subtítulos, texto en pantalla, versiones 9:16 y 4:5 (`lib/jobs/assemblePiece.ts`) | ✅ 2026-11-18 |
+| E13 | **Creativos del mismo video:** hooks (apertura) y CTAs (cierre) alternativos sobre el mismo cuerpo; matriz hook × CTA; solo se recodifican la primera y la última escena (`lib/jobs/renderVariants.ts`). Apertura alternativa grabada opcional | ✅ 2026-11-18 |
+| E14 | **Distribuidor:** plan por pieza con prueba en 2 fases (hooks con C1 → CTAs con el hook ganador), calendario por red con copy adaptado, consejos por red; resultados manuales por creativo y ganador solo con ≥300 vistas y ventaja ≥20 % (`lib/distribution.ts`, `lib/variantResults.ts`) | ✅ 2026-11-18 |
 
 ### F. Publicación
 | ID | Requisito | Estado |

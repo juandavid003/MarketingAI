@@ -11,15 +11,17 @@ export function TakeUploadForm({
   businessId,
   pieceId,
   sceneNumber,
+  slot = "main",
   hasTake,
 }: {
   businessId: string;
   pieceId: string;
   sceneNumber: number;
+  slot?: string;
   hasTake: boolean;
 }) {
   const [state, formAction, pending] = useActionState(
-    uploadSceneTake.bind(null, businessId, pieceId, sceneNumber),
+    uploadSceneTake.bind(null, businessId, pieceId, sceneNumber, slot),
     initialState
   );
 

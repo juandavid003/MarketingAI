@@ -27,6 +27,7 @@ Pedido del fundador: guion genérico, ideas basadas en lo que funciona a la comp
 - Una toma por escena (`SceneTake`): quita silencios, transcribe, revisa y avisa "conviene volver a grabar" con motivo.
 - Armado del video final 9:16 + 4:5 con subtítulos y texto en pantalla en el color de marca.
 - Competidores con usuario de Instagram (Business Discovery), estadísticas reales, publicaciones manuales e ideas con fuente.
+- **Distribuidor** (`/business/[id]/pieces/[pieceId]/creatives`): 3 hooks + 2 CTAs alternativos, creativos hook × CTA del mismo video, calendario por red con copy propio, registro de resultados y ganador por fase.
 - **Pendiente para activar Business Discovery:** habilitar `instagram_manage_insights` en la app de Meta y poner `META_REQUEST_IG_INSIGHTS=true`; luego cada cliente reconecta Meta.
 
 ## Sprint 2 — Leads y resultados (diferenciador)

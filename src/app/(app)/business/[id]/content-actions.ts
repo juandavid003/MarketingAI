@@ -20,6 +20,7 @@ import {
 } from "@/lib/contentAi";
 import { storageKey, saveUpload, deleteStored } from "@/lib/storage";
 import { processSceneTake, isTakeStalled } from "@/lib/jobs/processTake";
+import { parseStrategy } from "@/lib/distribution";
 import { assembleContentPiece, isAssemblyStalled } from "@/lib/jobs/assemblePiece";
 
 const MAX_TAKE_BYTES = 300 * 1024 * 1024;
@@ -200,6 +201,7 @@ export async function uploadSceneTake(
   businessId: string,
   pieceId: string,
   sceneNumber: number,
+  slot: string,
   _prev: UploadTakeState,
   formData: FormData
 ): Promise<UploadTakeState> {
@@ -211,6 +213,14 @@ export async function uploadSceneTake(
   }
   const content = JSON.parse(piece.content) as GeneratedContentPiece;
   if (!content.escenas.some((s) => s.numero === sceneNumber)) return { error: "Esa escena no existe." };
+  if (slot !== "main") {
+    // Alternative openings replace scene 1 for one hook of the plan.
+    const hook = parseStrategy(piece.strategy)?.hooks.find((h) => `hook:${h.codigo}` === slot);
+    if (!hook || hook.original || sceneNumber !== 1) return { error: "Ese hook ya no existe en el plan." };
+    if (piece.variantsStatus === "rendering") {
+      return { error: "Espera a que terminen de generarse los creativos antes de cambiar una toma." };
+    }
+  }
 
   const file = formData.get("video");
   if (!(file instanceof File) || file.size === 0) return { error: "Selecciona un video." };
@@ -229,12 +239,11 @@ export async function uploadSceneTake(
     return { error: "No se pudo guardar el video. Intenta de nuevo." };
   }
 
-  const previous = await prisma.sceneTake.findUnique({
-    where: { contentPieceId_sceneNumber: { contentPieceId: pieceId, sceneNumber } },
-  });
+  const uniqueTake = { contentPieceId_sceneNumber_slot: { contentPieceId: pieceId, sceneNumber, slot } };
+  const previous = await prisma.sceneTake.findUnique({ where: uniqueTake });
   await prisma.sceneTake.upsert({
-    where: { contentPieceId_sceneNumber: { contentPieceId: pieceId, sceneNumber } },
-    create: { id: takeId, contentPieceId: pieceId, sceneNumber, originalFilename: file.name, originalPath: key },
+    where: uniqueTake,
+    create: { id: takeId, contentPieceId: pieceId, sceneNumber, slot, originalFilename: file.name, originalPath: key },
     update: {
       id: takeId,
       originalFilename: file.name,
@@ -255,6 +264,7 @@ export async function uploadSceneTake(
 
   after(() => processSceneTake(takeId));
   revalidatePath(piecePath(businessId, pieceId));
+  revalidatePath(`${piecePath(businessId, pieceId)}/creatives`);
   return { ok: true };
 }
 
@@ -268,6 +278,7 @@ export async function retryTake(businessId: string, pieceId: string, takeId: str
     after(() => processSceneTake(takeId));
   }
   revalidatePath(piecePath(businessId, pieceId));
+  revalidatePath(`${piecePath(businessId, pieceId)}/creatives`);
 }
 
 // ---------------------------------------------------------------------------
@@ -283,7 +294,9 @@ export async function assemblePiece(businessId: string, pieceId: string) {
   if (!piece) redirect(`/business/${businessId}`);
 
   const content = JSON.parse(piece.content) as GeneratedContentPiece;
-  const ready = new Set(piece.takes.filter((t) => t.status === "ready").map((t) => t.sceneNumber));
+  const ready = new Set(
+    piece.takes.filter((t) => t.status === "ready" && t.slot === "main").map((t) => t.sceneNumber)
+  );
   if (!content.escenas.every((s) => ready.has(s.numero))) {
     redirect(withError(piecePath(businessId, pieceId), "Sube y espera a que estén listas todas las escenas."));
   }

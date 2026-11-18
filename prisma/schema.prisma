@@ -148,11 +148,58 @@ model ContentPiece {
   model          String
   assemblyStatus String    @default("idle") // idle | assembling | ready | error
   assemblyError  String?
+  // Distribution plan ("el distribuidor"): alternative hooks and CTAs for the
+  // same body, the test design and a per-platform calendar. JSON
+  // DistributionStrategy (lib/distribution.ts).
+  strategy       String?
+  // Background render of the creative variants: idle | rendering
+  variantsStatus String    @default("idle")
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @default(now()) @updatedAt
 
   takes       SceneTake[]
   videoAssets VideoAsset[]
+  variants    CreativeVariant[]
+}
+
+// One creative = the same recorded body with a given hook (opening) and CTA
+// (closing), codes from ContentPiece.strategy: "H2C1" = hook H2 + CTA C1.
+// Rendered videos are VideoAssets with this variantCode; a render is current
+// while its VideoVersion.hook/cta still match the strategy text.
+model CreativeVariant {
+  id             String       @id @default(cuid())
+  contentPiece   ContentPiece @relation(fields: [contentPieceId], references: [id], onDelete: Cascade)
+  contentPieceId String
+  code           String
+  hookCode       String
+  ctaCode        String
+  renderStatus   String       @default("idle") // idle | queued | rendering | ready | error
+  renderError    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @default(now()) @updatedAt
+
+  results VariantResult[]
+
+  @@unique([contentPieceId, code])
+}
+
+// Results the owner reads from each platform for one published creative.
+// Entered by hand (organic posts); nothing here is estimated.
+model VariantResult {
+  id        String          @id @default(cuid())
+  variant   CreativeVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  variantId String
+  platform  String
+  postUrl   String?
+  postedAt  DateTime?
+  views     Int?
+  likes     Int?
+  comments  Int?
+  shares    Int?
+  saves     Int?
+  clicks    Int? // link clicks, messages or calls — the CTA response
+  notes     String?
+  createdAt DateTime        @default(now())
 }
 
 // The recording of one scene of a ContentPiece. Re-recording replaces it.
@@ -170,10 +217,13 @@ model SceneTake {
   keepIntervals    String? // JSON [[start, end], ...] after removing silences
   review           String? // JSON TakeReview (lib/takeReview.ts)
   errorMessage     String?
+  // "main" = the script take; "hook:H2" = an alternative opening recorded
+  // for hook H2 of the distribution plan (always scene 1).
+  slot             String       @default("main")
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @default(now()) @updatedAt
 
-  @@unique([contentPieceId, sceneNumber])
+  @@unique([contentPieceId, sceneNumber, slot])
 }
 
 model Campaign {
@@ -273,6 +323,8 @@ model VideoAsset {
   // Set when this video was assembled from a ContentPiece's scene takes.
   contentPiece   ContentPiece? @relation(fields: [contentPieceId], references: [id], onDelete: SetNull)
   contentPieceId String?
+  // Set for renders of a CreativeVariant ("H2C1"); null for the base video.
+  variantCode    String?
 
   versions VideoVersion[]
 }
