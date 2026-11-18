@@ -11,7 +11,7 @@ export function ffmpegPath(): string {
   return process.env.FFMPEG_PATH?.trim() || "ffmpeg";
 }
 
-function ffprobePath(): string {
+export function ffprobePath(): string {
   return process.env.FFPROBE_PATH?.trim() || "ffprobe";
 }
 

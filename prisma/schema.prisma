@@ -66,11 +66,14 @@ model Business {
   campaigns        Campaign[]
   videoAssets      VideoAsset[]
   competitors      Competitor[]
+  contentPieces    ContentPiece[]
+  competitorIdeas  CompetitorIdeaBatch[]
 }
 
-// Just a name/search term, not a Page ID — we have no way to look up a
-// competitor's exact Page (no token for it). Matched against the public
-// Meta Ad Library (see lib/adLibrary.ts), which needs only free text.
+// name is a free-text search term, matched against the public Meta Ad
+// Library web page (see lib/adLibrary.ts). instagramUsername, when set, is
+// read through the official Business Discovery API
+// (lib/competitorDiscovery.ts) — never scraped.
 
 model Competitor {
   id         String   @id @default(cuid())
@@ -78,6 +81,99 @@ model Competitor {
   businessId String
   name       String
   createdAt  DateTime @default(now())
+
+  instagramUsername String?
+  followersCount    Int?
+  mediaCount        Int?
+  lastSyncedAt      DateTime?
+  syncError         String?
+
+  posts CompetitorPost[]
+}
+
+// A competitor's public post. source "instagram_api" = read from Business
+// Discovery (metrics as reported by Instagram); "manual" = a reference the
+// business owner registered themselves (metrics, if any, as they observed
+// them). The UI always labels which is which.
+model CompetitorPost {
+  id            String     @id @default(cuid())
+  competitor    Competitor @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+  competitorId  String
+  source        String // instagram_api | manual
+  externalId    String? // Instagram media id
+  permalink     String?
+  caption       String?
+  mediaType     String? // VIDEO | IMAGE | CAROUSEL_ALBUM | REELS ...
+  likeCount     Int?
+  commentsCount Int?
+  postedAt      DateTime?
+  notes         String? // manual only: what the owner noticed about it
+  createdAt     DateTime   @default(now())
+
+  @@unique([competitorId, externalId])
+}
+
+// AI-extracted patterns + video ideas from competitors' real posts. Every
+// idea references the posts it came from (ids validated server-side, so the
+// model can't cite a post that doesn't exist).
+model CompetitorIdeaBatch {
+  id         String   @id @default(cuid())
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId String
+  provider   String
+  model      String
+  content    String // JSON: GeneratedCompetitorIdeas
+  createdAt  DateTime @default(now())
+}
+
+// One piece of content, generic across industries and sources: hook, scene-
+// by-scene script (what to show / say / how to record), description,
+// hashtags and CTAs. The owner records one take per scene; the studio checks
+// each take and assembles the final video (lib/jobs/assemblePiece.ts).
+model ContentPiece {
+  id             String    @id @default(cuid())
+  business       Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId     String
+  campaign       Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  campaignId     String?
+  contentIndex   Int?
+  sourceType     String // campaign | competitor_idea | brief
+  sourceSummary  String
+  sourceRefs     String? // JSON: [{ permalink, competitor, why }]
+  purpose        String
+  format         String
+  hook           String
+  content        String // JSON: GeneratedContentPiece (lib/ai.ts)
+  provider       String
+  model          String
+  assemblyStatus String    @default("idle") // idle | assembling | ready | error
+  assemblyError  String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @default(now()) @updatedAt
+
+  takes       SceneTake[]
+  videoAssets VideoAsset[]
+}
+
+// The recording of one scene of a ContentPiece. Re-recording replaces it.
+model SceneTake {
+  id               String       @id @default(cuid())
+  contentPiece     ContentPiece @relation(fields: [contentPieceId], references: [id], onDelete: Cascade)
+  contentPieceId   String
+  sceneNumber      Int
+  originalFilename String
+  originalPath     String // storage key
+  durationSeconds  Float?
+  hasAudio         Boolean?
+  status           String       @default("uploaded") // uploaded | processing | ready | error
+  transcript       String? // JSON Transcript (lib/whisper.ts)
+  keepIntervals    String? // JSON [[start, end], ...] after removing silences
+  review           String? // JSON TakeReview (lib/takeReview.ts)
+  errorMessage     String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @default(now()) @updatedAt
+
+  @@unique([contentPieceId, sceneNumber])
 }
 
 model Campaign {
@@ -93,6 +189,7 @@ model Campaign {
   createdAt     DateTime @default(now())
 
   storyboards    Storyboard[]
+  contentPieces  ContentPiece[]
   images         CampaignImage[]
   publishedPosts PublishedPost[]
   adCampaigns    AdCampaign[]
@@ -173,6 +270,10 @@ model VideoAsset {
   // server restart (see isStalled in lib/jobs/processVideo.ts).
   updatedAt        DateTime @default(now()) @updatedAt
 
+  // Set when this video was assembled from a ContentPiece's scene takes.
+  contentPiece   ContentPiece? @relation(fields: [contentPieceId], references: [id], onDelete: SetNull)
+  contentPieceId String?
+
   versions VideoVersion[]
 }
 
@@ -185,6 +286,7 @@ model VideoVersion {
   thumbnailPath String?
   hook          String?
   cta           String?
+  caption       String? // full post text (description + CTAs + hashtags), when known
   startSeconds  Float
   endSeconds    Float
   createdAt     DateTime   @default(now())
@@ -338,4 +440,3 @@ model Verification {
   @@index([identifier])
   @@map("verification")
 }
-

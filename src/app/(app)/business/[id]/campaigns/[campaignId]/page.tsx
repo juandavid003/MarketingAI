@@ -7,7 +7,8 @@ import { ADS_ENABLED } from "@/lib/features";
 import { fileUrl } from "@/lib/storage";
 import { decryptToken } from "@/lib/crypto";
 import type { GeneratedCampaign } from "@/lib/ai";
-import { createStoryboard, createCampaignImage, publishCampaignImage } from "../../actions";
+import { createCampaignImage, publishCampaignImage } from "../../actions";
+import { createPieceFromCampaign } from "../../content-actions";
 import { launchAdCampaign, activateAdCampaign, pauseAdCampaign, updateAdBudget } from "../../ads-actions";
 import { fetchAdSetInsights, type AdSetInsights } from "@/lib/meta";
 import {
@@ -29,6 +30,7 @@ export default async function CampaignPage({
   params: Promise<{ id: string; campaignId: string }>;
   searchParams: Promise<{
     storyboard_error?: string;
+    error?: string;
     image_error?: string;
     publish_error?: string;
     ad_error?: string;
@@ -37,6 +39,7 @@ export default async function CampaignPage({
   const { id, campaignId } = await params;
   const {
     storyboard_error: storyboardError,
+    error: pieceError,
     image_error: imageError,
     publish_error: publishError,
     ad_error: adError,
@@ -49,6 +52,7 @@ export default async function CampaignPage({
       where: { id: campaignId },
       include: {
         storyboards: { orderBy: { createdAt: "desc" } },
+        contentPieces: { select: { id: true, contentIndex: true } },
         images: { orderBy: { createdAt: "desc" } },
         publishedPosts: { orderBy: { createdAt: "desc" } },
         adCampaigns: true,
@@ -72,6 +76,7 @@ export default async function CampaignPage({
   }
 
   const storyboardByIndex = new Map(campaign.storyboards.map((sb) => [sb.contentIndex, sb]));
+  const pieceByIndex = new Map(campaign.contentPieces.map((p) => [p.contentIndex, p]));
   const imageByIndex = new Map(campaign.images.map((img) => [img.contentIndex, img]));
   const publishedByIndex = new Map(campaign.publishedPosts.map((p) => [p.contentIndex, p]));
   const pages = business.socialConnection?.pages ?? [];
@@ -112,6 +117,7 @@ export default async function CampaignPage({
 
       <div className="space-y-2">
         {storyboardError && <Notice>No se pudo generar el guion: {storyboardError}</Notice>}
+        {pieceError && <Notice>No se pudo generar el guion: {pieceError}</Notice>}
         {imageError && <Notice>No se pudo generar la imagen: {imageError}</Notice>}
         {publishError && <Notice>No se pudo publicar: {publishError}</Notice>}
         {adError && <Notice>{adError}</Notice>}
@@ -146,6 +152,7 @@ export default async function CampaignPage({
           <div className="mt-2 space-y-3">
             {content.contenido.map((item, i) => {
               const storyboard = storyboardByIndex.get(i);
+              const piece = pieceByIndex.get(i);
               const image = imageByIndex.get(i);
               const published = publishedByIndex.get(i);
               const piecePerformance = performanceByIndex.get(i);
@@ -175,19 +182,27 @@ export default async function CampaignPage({
                   )}
 
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {storyboard ? (
+                    {piece ? (
                       <a
-                        href={`/business/${id}/campaigns/${campaignId}/storyboards/${storyboard.id}`}
+                        href={`/business/${id}/pieces/${piece.id}`}
                         className="inline-block text-sm text-brand hover:underline"
                       >
-                        Ver guion generado →
+                        Ver guion y grabar escenas →
                       </a>
                     ) : (
-                      <form action={createStoryboard.bind(null, id, campaignId, i)}>
+                      <form action={createPieceFromCampaign.bind(null, id, campaignId, i)}>
                         <Button type="submit" size="sm">
-                          Generar storyboard y guion
+                          Generar guion completo
                         </Button>
                       </form>
+                    )}
+                    {storyboard && !piece && (
+                      <a
+                        href={`/business/${id}/campaigns/${campaignId}/storyboards/${storyboard.id}`}
+                        className="inline-block text-sm text-muted hover:underline"
+                      >
+                        Ver storyboard anterior
+                      </a>
                     )}
 
                     {!image && (

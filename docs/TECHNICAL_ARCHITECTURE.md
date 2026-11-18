@@ -89,6 +89,7 @@
 | `STORAGE_DIR` | Carpeta de archivos privados. Local: `./storage`. Producción: `/data/storage` (volumen `appdata`). |
 | `RESEND_API_KEY`, `EMAIL_FROM` | Correo transaccional (opcional) |
 | `FEATURE_ADS` | `true` reactiva la pauta |
+| `META_REQUEST_IG_INSIGHTS` | `true` pide `instagram_manage_insights` en el login de Meta (Business Discovery de competidores). Activar solo después de habilitarlo en el panel de la app. |
 
 ## Riesgos técnicos
 

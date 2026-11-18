@@ -546,25 +546,4 @@ export async function publishCampaignImage(
   redirect(`/business/${businessId}/campaigns/${campaignId}`);
 }
 
-export async function addCompetitor(businessId: string, formData: FormData) {
-  await requireBusinessAccess(businessId);
-
-  const name = formData.get("name");
-  if (typeof name !== "string" || name.trim().length === 0) {
-    redirect(`/business/${businessId}`);
-  }
-
-  await prisma.competitor.create({
-    data: { businessId, name: name.trim() },
-  });
-
-  revalidatePath(`/business/${businessId}`);
-  redirect(`/business/${businessId}`);
-}
-
-export async function removeCompetitor(businessId: string, competitorId: string) {
-  await requireBusinessAccess(businessId);
-  await prisma.competitor.deleteMany({ where: { id: competitorId, businessId } });
-  revalidatePath(`/business/${businessId}`);
-  redirect(`/business/${businessId}`);
-}
+// Competitor actions live in competitor-actions.ts.

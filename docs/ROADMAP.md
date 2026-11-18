@@ -21,6 +21,14 @@ Verificado con una prueba de navegador real (23/23) contra una base de datos loc
 | `lib/businessContext.ts`: un solo contexto de negocio para todos los prompts | S |
 | **Infraestructura:** migración a DigitalOcean (droplet + Docker + GitHub Actions), ver `deploy/README.md` | M |
 
+## Adelantado 2026-11-18 — Del guion al video final + competencia con evidencia
+Pedido del fundador: guion genérico, ideas basadas en lo que funciona a la competencia y armado del video final.
+- `ContentPiece` (hook, escenas, descripción, hashtags, CTAs, propósito) desde campaña, idea de la competencia o encargo libre.
+- Una toma por escena (`SceneTake`): quita silencios, transcribe, revisa y avisa "conviene volver a grabar" con motivo.
+- Armado del video final 9:16 + 4:5 con subtítulos y texto en pantalla en el color de marca.
+- Competidores con usuario de Instagram (Business Discovery), estadísticas reales, publicaciones manuales e ideas con fuente.
+- **Pendiente para activar Business Discovery:** habilitar `instagram_manage_insights` en la app de Meta y poner `META_REQUEST_IG_INSIGHTS=true`; luego cada cliente reconecta Meta.
+
 ## Sprint 2 — Leads y resultados (diferenciador)
 | Tarea | Complejidad |
 |---|---|

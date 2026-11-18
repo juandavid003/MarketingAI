@@ -1,7 +1,7 @@
 import "server-only";
 import path from "path";
 import { createWriteStream } from "fs";
-import { mkdir, readFile, writeFile, stat } from "fs/promises";
+import { mkdir, readFile, writeFile, stat, rm } from "fs/promises";
 import { Readable } from "stream";
 import { pipeline } from "stream/promises";
 
@@ -101,4 +101,18 @@ export async function fileSize(key: string): Promise<number | null> {
   } catch {
     return null;
   }
+}
+
+// Deletes a stored file or a whole folder (e.g. a replaced take's directory).
+// Missing paths are ignored. Accepts only keys, never legacy public paths.
+export async function deleteStored(key: string): Promise<void> {
+  await rm(localPath(key), { recursive: true, force: true });
+}
+
+// A key in the same folder as another key: siblingKey("b/x/y/original.mp4",
+// "audio.mp3") → "b/x/y/audio.mp3".
+export function siblingKey(key: string, filename: string): string {
+  const sibling = [...key.split("/").slice(0, -1), filename].join("/");
+  assertValidKey(sibling);
+  return sibling;
 }

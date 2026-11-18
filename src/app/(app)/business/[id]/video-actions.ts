@@ -134,7 +134,7 @@ export async function publishVideoVersion(
     );
   }
 
-  const caption = [version.hook, version.cta].filter(Boolean).join("\n\n");
+  const caption = version.caption ?? [version.hook, version.cta].filter(Boolean).join("\n\n");
 
   try {
     const videoBuffer = await readStored(version.outputPath);

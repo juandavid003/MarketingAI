@@ -12,7 +12,6 @@ import {
   Repeat2,
   Heart,
   MessageCircle,
-  ExternalLink,
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireBusinessAccess } from "@/lib/dal";
@@ -24,26 +23,19 @@ import { getPageActivity, type PageActivity } from "@/lib/pageActivity";
 import { generateRealInsights } from "@/lib/realInsights";
 import { profileCompleteness } from "@/lib/profileCompleteness";
 import { fetchAdAccounts, type AdAccount } from "@/lib/meta";
-import {
-  searchCompetitorAds,
-  guessCountryCode,
-  adLibraryWebUrl,
-  AdLibraryAccessError,
-  type AdLibraryAd,
-} from "@/lib/adLibrary";
+import { purposeLabel, PURPOSES } from "@/lib/contentAi";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button, LinkButton } from "@/components/ui/Button";
-import { Input, Select, Textarea } from "@/components/ui/Field";
+import { Select, Textarea } from "@/components/ui/Field";
 import { EmptyState } from "@/components/ui/EmptyState";
 import {
   disconnectMeta,
   refreshPages,
   createCampaign,
   createCampaignFromObjective,
-  addCompetitor,
-  removeCompetitor,
 } from "./actions";
+import { createPieceFromBrief } from "./content-actions";
 import { connectAdAccount } from "./ads-actions";
 
 export default async function BusinessProfilePage({
@@ -56,6 +48,7 @@ export default async function BusinessProfilePage({
     meta_error?: string;
     campaign_error?: string;
     ad_error?: string;
+    error?: string;
   }>;
 }) {
   const { id } = await params;
@@ -64,6 +57,7 @@ export default async function BusinessProfilePage({
     meta_error: metaError,
     campaign_error: campaignError,
     ad_error: adError,
+    error: pieceError,
   } = await searchParams;
 
   await requireBusinessAccess(id);
@@ -75,7 +69,12 @@ export default async function BusinessProfilePage({
       socialConnection: { include: { pages: true, adAccount: true } },
       campaigns: { orderBy: { createdAt: "desc" } },
       videoAssets: { orderBy: { createdAt: "desc" } },
-      competitors: { orderBy: { createdAt: "asc" } },
+      competitors: { orderBy: { createdAt: "asc" }, include: { _count: { select: { posts: true } } } },
+      contentPieces: {
+        orderBy: { createdAt: "desc" },
+        take: 20,
+        include: { takes: { select: { status: true } }, _count: { select: { videoAssets: true } } },
+      },
     },
   });
 
@@ -93,26 +92,6 @@ export default async function BusinessProfilePage({
         err instanceof Error ? err.message : "No se pudieron leer las cuentas publicitarias.";
     }
   }
-
-  const competitorCountryCode = guessCountryCode(business.location);
-  const competitorAds = new Map<
-    string,
-    { ads: AdLibraryAd[]; error: string | null; accessPending?: boolean }
-  >();
-  await Promise.all(
-    business.competitors.map(async (competitor) => {
-      try {
-        const ads = await searchCompetitorAds(competitor.name, competitorCountryCode);
-        competitorAds.set(competitor.id, { ads, error: null });
-      } catch (err) {
-        competitorAds.set(competitor.id, {
-          ads: [],
-          error: err instanceof Error ? err.message : "Error al consultar la Ad Library.",
-          accessPending: err instanceof AdLibraryAccessError,
-        });
-      }
-    })
-  );
 
   const objectiveLabel =
     OBJECTIVES.find((o) => o.value === business.objective)?.label ?? business.objective;
@@ -135,6 +114,7 @@ export default async function BusinessProfilePage({
         {metaError && <Notice tone="danger">No se pudo conectar con Meta: {metaError}</Notice>}
         {campaignError && <Notice tone="danger">No se pudo crear la campaña: {campaignError}</Notice>}
         {adError && <Notice tone="danger">{adError}</Notice>}
+        {pieceError && <Notice tone="danger">{pieceError}</Notice>}
       </div>
 
       <div className="mt-8 space-y-4">
@@ -213,17 +193,54 @@ export default async function BusinessProfilePage({
         )}
       </Section>
 
-      <Section icon={Eye} title="Competencia" className="mt-10">
+      <Section
+        icon={Eye}
+        title="Competencia"
+        className="mt-10"
+        actions={
+          <LinkButton href={`/business/${business.id}/competitors`} variant="secondary" size="sm">
+            Ver competencia
+          </LinkButton>
+        }
+      >
+        <CompetitorSummary businessId={business.id} competitors={business.competitors} />
+      </Section>
+
+      <Section icon={Clapperboard} title="Guiones y videos" className="mt-10">
         <p className="text-sm text-muted">
-          Anuncios activos ahora mismo de negocios que agregues, según la Ad Library pública de
-          Meta — no necesitamos acceso a sus cuentas.
+          Cada guion trae hook, escenas (qué mostrar, qué decir y cómo grabarlo), descripción,
+          hashtags y CTAs. Graba cada escena, súbela y armamos el video final.
         </p>
-        <CompetitorSection
-          businessId={business.id}
-          competitors={business.competitors}
-          competitorAds={competitorAds}
-          countryCode={competitorCountryCode}
-        />
+        <PieceBriefForm businessId={business.id} aiConfigured={business.aiProvider != null} />
+        {business.contentPieces.length > 0 && (
+          <ul className="mt-4 divide-y divide-border">
+            {business.contentPieces.map((piece) => {
+              const ready = piece.takes.filter((t) => t.status === "ready").length;
+              return (
+                <li key={piece.id}>
+                  <Link
+                    href={`/business/${business.id}/pieces/${piece.id}`}
+                    className="flex items-center justify-between gap-3 py-3 hover:text-brand"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium">“{piece.hook}”</span>
+                      <span className="text-xs text-muted">
+                        {purposeLabel(piece.purpose)} · {piece.format}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-sm text-muted">
+                      {piece._count.videoAssets > 0
+                        ? "Video armado"
+                        : ready > 0
+                          ? `${ready} tomas subidas`
+                          : "Por grabar"}
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </Section>
 
       <Section icon={Megaphone} title="Campañas" className="mt-10">
@@ -547,115 +564,65 @@ function AdAccountCard({
   );
 }
 
-function CompetitorSection({
+function CompetitorSummary({
   businessId,
   competitors,
-  competitorAds,
-  countryCode,
 }: {
   businessId: string;
-  competitors: { id: string; name: string }[];
-  competitorAds: Map<string, { ads: AdLibraryAd[]; error: string | null; accessPending?: boolean }>;
-  countryCode: string;
+  competitors: { id: string; name: string; instagramUsername: string | null; _count: { posts: number } }[];
 }) {
-  const anyAccessPending = [...competitorAds.values()].some((r) => r.accessPending);
+  if (competitors.length === 0) {
+    return (
+      <p className="text-sm text-muted">
+        Agrega a tus competidores para ver qué publican, qué les funciona y recibir ideas de video
+        basadas en eso.{" "}
+        <Link href={`/business/${businessId}/competitors`} className="text-brand hover:underline">
+          Agregar competidores →
+        </Link>
+      </p>
+    );
+  }
   return (
-    <div>
-      <form action={addCompetitor.bind(null, businessId)} className="flex flex-wrap items-center gap-2">
-        <Input
-          type="text"
-          name="name"
-          required
-          placeholder="Nombre del competidor (ej. Clínica Dental ABC)"
-          className="w-64"
-        />
-        <Button type="submit" variant="secondary" size="sm">
-          Agregar
-        </Button>
-      </form>
+    <ul className="flex flex-wrap gap-2">
+      {competitors.map((c) => (
+        <li key={c.id} className="rounded-full border border-border px-3 py-1 text-sm">
+          {c.name}
+          {c.instagramUsername && <span className="text-muted"> @{c.instagramUsername}</span>}
+          <span className="text-faint"> · {c._count.posts} publicaciones</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
-      {anyAccessPending && (
-        <p className="mt-4 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-          La consulta automática de anuncios aún no está disponible: Meta debe aprobar el acceso
-          de esta app a su Ad Library API. Mientras tanto, usa el enlace &ldquo;Ver en la biblioteca
-          de anuncios de Meta&rdquo; de cada competidor. Nota: fuera de la Unión Europea, la API de
-          Meta casi no devuelve anuncios comerciales, así que esa página pública es la fuente más
-          completa.
-        </p>
-      )}
-
-      {competitors.length === 0 ? (
-        <p className="mt-4 text-sm text-muted">
-          Agrega el nombre de un competidor para ver qué anuncios está pautando.
-        </p>
-      ) : (
-        <div className="mt-4 space-y-4">
-          {competitors.map((competitor) => {
-            const result = competitorAds.get(competitor.id);
-            return (
-              <Card key={competitor.id} className="p-4">
-                <div className="flex items-center justify-between gap-4">
-                  <p className="font-medium">{competitor.name}</p>
-                  <form action={removeCompetitor.bind(null, businessId, competitor.id)}>
-                    <button type="submit" className="text-sm text-muted hover:text-foreground hover:underline">
-                      Quitar
-                    </button>
-                  </form>
-                </div>
-
-                <a
-                  href={adLibraryWebUrl(competitor.name, countryCode)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-1 inline-flex items-center gap-1 text-sm text-brand hover:underline"
-                >
-                  Ver en la biblioteca de anuncios de Meta <ExternalLink className="size-3" />
-                </a>
-
-                {result?.error && !result.accessPending && (
-                  <p className="mt-2 text-sm text-red-600 dark:text-red-400">{result.error}</p>
-                )}
-
-                {!result?.error && result?.ads.length === 0 && (
-                  <p className="mt-2 text-sm text-muted">
-                    La API de Meta no devolvió anuncios activos (fuera de la UE suele no incluir
-                    anuncios comerciales). Revisa la biblioteca pública con el enlace de arriba.
-                  </p>
-                )}
-
-                {!result?.error && result && result.ads.length > 0 && (
-                  <ul className="mt-2 space-y-2">
-                    {result.ads.map((ad) => (
-                      <li key={ad.id} className="text-sm">
-                        {ad.bodies[0] && (
-                          <p className="text-muted">
-                            &ldquo;{ad.bodies[0].slice(0, 140)}
-                            {ad.bodies[0].length > 140 ? "…" : ""}&rdquo;
-                          </p>
-                        )}
-                        <div className="mt-0.5 flex items-center gap-2 text-xs text-faint">
-                          {ad.startedAt && <span>Desde {new Date(ad.startedAt).toLocaleDateString()}</span>}
-                          {ad.snapshotUrl && (
-                            <a
-                              href={ad.snapshotUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-0.5 hover:text-foreground hover:underline"
-                            >
-                              Ver anuncio <ExternalLink className="size-3" />
-                            </a>
-                          )}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </Card>
-            );
-          })}
-        </div>
-      )}
-    </div>
+function PieceBriefForm({ businessId, aiConfigured }: { businessId: string; aiConfigured: boolean }) {
+  if (!aiConfigured) {
+    return (
+      <Link href={`/business/${businessId}/settings`} className="mt-3 inline-block text-sm text-brand hover:underline">
+        Configura tu IA para generar guiones →
+      </Link>
+    );
+  }
+  return (
+    <form action={createPieceFromBrief.bind(null, businessId)} className="mt-3 space-y-3">
+      <Textarea
+        name="brief"
+        required
+        rows={2}
+        placeholder="¿Sobre qué quieres tu próximo video? Ej. Mostrar cómo es una primera visita"
+      />
+      <div className="flex flex-wrap items-center gap-2">
+        <Select name="purpose" defaultValue="" className="w-auto">
+          <option value="">Propósito: que la IA decida</option>
+          {PURPOSES.map((p) => (
+            <option key={p.value} value={p.value}>
+              {p.label}
+            </option>
+          ))}
+        </Select>
+        <Button type="submit">Generar guion</Button>
+      </div>
+    </form>
   );
 }
 

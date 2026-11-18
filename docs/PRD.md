@@ -41,10 +41,10 @@ Que un negocio pequeño, de cualquier industria, publique contenido útil cada s
 | ID | Requisito | Estado |
 |---|---|---|
 | B1 | Registrar competidores por nombre | ✅ |
-| B2 | Registrar perfiles sociales del competidor (usuario de Instagram, página de Facebook, sitio) | ⬜ → Sprint 5 |
+| B2 | Registrar perfiles sociales del competidor (usuario de Instagram) + publicaciones de referencia registradas a mano (cualquier red) | ✅ 2026-11-18 (`/business/[id]/competitors`) |
 | B3 | Ver anuncios activos vía Meta Ad Library API | 🟡 — **riesgo:** la API solo cubre anuncios comerciales entregados en UE/Reino Unido; fuera de ahí, principalmente políticos. Ver [API_INTEGRATIONS.md](API_INTEGRATIONS.md) |
-| B4 | Análisis de contenido orgánico público (formatos, frecuencia, hooks, temas, engagement) vía Instagram Business Discovery | ⬜ → Sprint 5 |
-| B5 | Recomendaciones accionables + explicación explícita de qué datos hay y cuáles no | ⬜ → Sprint 5 |
+| B4 | Análisis de contenido orgánico público (formatos, frecuencia, hooks, temas, engagement) vía Instagram Business Discovery | ✅ código 2026-11-18 (`lib/competitorDiscovery.ts`, `lib/competitorStats.ts`) — **depende** de `instagram_manage_insights` (`META_REQUEST_IG_INSIGHTS=true`) |
+| B5 | Recomendaciones accionables + explicación explícita de qué datos hay y cuáles no | ✅ 2026-11-18: patrones, oportunidades e ideas de video con cita a las publicaciones reales de origen (ids validados en el servidor) |
 
 ### C. Radar de tendencias
 | ID | Requisito | Estado |
@@ -58,10 +58,10 @@ Que un negocio pequeño, de cualquier industria, publique contenido útil cada s
 | ID | Requisito | Estado |
 |---|---|---|
 | D1 | Campaña generada por IA desde una oportunidad o un objetivo libre | ✅ |
-| D2 | Guion escena por escena por pieza (qué hacer, qué decir, cómo grabar) | ✅ |
+| D2 | Guion genérico por pieza (`ContentPiece`): hook, escenas (qué mostrar / qué decir / texto en pantalla / cómo grabar), descripción, hashtags, CTAs y propósito. Se crea desde una campaña, una idea de la competencia o un encargo libre | ✅ 2026-11-18 |
 | D3 | Plan semanal: pilares, ideas con **propósito** (reconocimiento / interacción / leads / conversión / fidelización), día sugerido | ⬜ → Sprint 3 |
-| D4 | Captions y hashtags por plataforma | ⬜ → Sprint 3 |
-| D5 | Vincular el video que sube el usuario con la escena/guion que debía grabar | ⬜ → Sprint 3 |
+| D4 | Captions y hashtags por plataforma | 🟡 caption + hashtags por pieza (una versión); por plataforma → Sprint 3 |
+| D5 | Vincular el video que sube el usuario con la escena/guion que debía grabar | ✅ 2026-11-18 (`SceneTake`: una toma por escena) |
 
 ### E. Estudio de video
 | ID | Requisito | Estado |
@@ -71,12 +71,13 @@ Que un negocio pequeño, de cualquier industria, publique contenido útil cada s
 | E3 | Elegir el mejor fragmento + hook + CTA | ✅ (solo con la transcripción) |
 | E4 | Clip vertical 9:16 con subtítulos quemados + miniatura | ✅ |
 | E5 | Almacenamiento **privado** y persistente; procesamiento en **segundo plano** con estado y reintento | ⬜ → **Sprint 1** |
-| E6 | Quitar pausas/silencios | ⬜ → Sprint 3 |
-| E7 | Varias versiones/formatos (9:16, 1:1, 4:5) | ⬜ → Sprint 4 |
-| E8 | Elementos de marca (logo, colores en subtítulos) | ⬜ → Sprint 4 |
-| E9 | Análisis visual (Gemini) y aviso "conviene volver a grabar" con motivo | ⬜ → spike en Sprint 3 |
+| E6 | Quitar pausas/silencios | ✅ 2026-11-18 (ffmpeg `silencedetect`, `lib/videoEdit.ts`) |
+| E7 | Varias versiones/formatos (9:16, 1:1, 4:5) | 🟡 9:16 y 4:5 al armar un guion; 1:1 → Sprint 4 |
+| E8 | Elementos de marca (logo, colores en subtítulos) | 🟡 texto en pantalla sobre el color de marca; logo → Sprint 4 |
+| E9 | Análisis visual (Gemini) y aviso "conviene volver a grabar" con motivo | 🟡 aviso por toma basado en audio (reglas de voz/duración + IA que compara lo dicho con el guion); análisis visual → spike Gemini |
 | E10 | Música de fuentes autorizadas (solo sugerencia/biblioteca con licencia) | ⬜ → posterior |
-| E11 | Descargar el video final | ✅ (archivo accesible) → se mantiene con almacenamiento privado |
+| E11 | Descargar el video final | ✅ |
+| E12 | **Armar el video final** desde las tomas de cada escena: unir en orden, quitar silencios, subtítulos, texto en pantalla, versiones 9:16 y 4:5 (`lib/jobs/assemblePiece.ts`) | ✅ 2026-11-18 |
 
 ### F. Publicación
 | ID | Requisito | Estado |

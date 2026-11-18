@@ -32,6 +32,10 @@ export const META_SCOPES = [
   "pages_manage_posts",
   "business_management",
   "instagram_basic",
+  // Needed by Business Discovery (competitors' public Instagram data, see
+  // lib/competitorDiscovery.ts). Opt-in: requesting it before it's enabled
+  // for the app in Meta's dashboard makes the OAuth dialog fail entirely.
+  ...(process.env.META_REQUEST_IG_INSIGHTS === "true" ? ["instagram_manage_insights"] : []),
   ...(ADS_ENABLED ? ["ads_management"] : []),
 ].join(",");
 

@@ -20,7 +20,7 @@ const DEFAULT_MODELS: Record<AiProvider, string> = {
   openai: "gpt-5-mini",
 };
 
-function resolveModel(provider: AiProvider, override: string | null): string {
+export function resolveModel(provider: AiProvider, override: string | null): string {
   return override?.trim() || DEFAULT_MODELS[provider];
 }
 
@@ -57,7 +57,7 @@ Responde ÚNICAMENTE con un objeto JSON válido (sin texto adicional, sin markdo
 Incluye entre 3 y 4 elementos en "contenido".`;
 }
 
-async function callAnthropic(apiKey: string, model: string, prompt: string): Promise<string> {
+async function callAnthropic(apiKey: string, model: string, prompt: string, maxTokens: number): Promise<string> {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -67,7 +67,7 @@ async function callAnthropic(apiKey: string, model: string, prompt: string): Pro
     },
     body: JSON.stringify({
       model,
-      max_tokens: 1500,
+      max_tokens: maxTokens,
       messages: [{ role: "user", content: prompt }],
     }),
   });
@@ -85,7 +85,7 @@ async function callAnthropic(apiKey: string, model: string, prompt: string): Pro
   return text;
 }
 
-async function callOpenAI(apiKey: string, model: string, prompt: string): Promise<string> {
+async function callOpenAI(apiKey: string, model: string, prompt: string, maxTokens: number): Promise<string> {
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -95,7 +95,10 @@ async function callOpenAI(apiKey: string, model: string, prompt: string): Promis
     body: JSON.stringify({
       model,
       messages: [{ role: "user", content: prompt }],
-      max_tokens: 1500,
+      // max_tokens is rejected by reasoning models (gpt-5*, o*); this one is
+      // accepted by every current chat model. Reasoning tokens count against
+      // it, hence the generous budget.
+      max_completion_tokens: Math.max(maxTokens * 4, 8000),
     }),
   });
   const json = await res.json();
@@ -109,7 +112,7 @@ async function callOpenAI(apiKey: string, model: string, prompt: string): Promis
   return text;
 }
 
-function extractJson(text: string): unknown {
+export function extractJson(text: string): unknown {
   const cleaned = text
     .trim()
     .replace(/^```(?:json)?\s*/i, "")
@@ -163,10 +166,16 @@ function validateCampaign(value: unknown): GeneratedCampaign {
   };
 }
 
-async function callProvider(provider: AiProvider, apiKey: string, model: string, prompt: string): Promise<string> {
+export async function callProvider(
+  provider: AiProvider,
+  apiKey: string,
+  model: string,
+  prompt: string,
+  maxTokens = 1500
+): Promise<string> {
   return provider === "anthropic"
-    ? callAnthropic(apiKey, model, prompt)
-    : callOpenAI(apiKey, model, prompt);
+    ? callAnthropic(apiKey, model, prompt, maxTokens)
+    : callOpenAI(apiKey, model, prompt, maxTokens);
 }
 
 export async function generateCampaign(input: {
