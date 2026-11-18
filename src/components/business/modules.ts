@@ -11,6 +11,7 @@ import {
   Building2,
   Plug,
   Bot,
+  Send,
   type LucideIcon,
 } from "lucide-react";
 
@@ -68,6 +69,13 @@ export const MODULE_GROUPS: { label: string; modules: ModuleDef[] }[] = [
         path: "calendar",
         icon: CalendarDays,
         description: "Calendario que combina reels, carruseles, historias y posts de todas tus campañas.",
+      },
+      {
+        key: "publishing",
+        label: "Publicaciones",
+        path: "publishing",
+        icon: Send,
+        description: "Publica o programa en Facebook e Instagram; recordatorio y paquete para TikTok y YouTube.",
       },
       {
         key: "videos",

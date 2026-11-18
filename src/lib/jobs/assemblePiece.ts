@@ -16,6 +16,7 @@ import {
   probeMedia,
   totalLength,
   overlayWindow,
+  OUTPUT_FORMATS,
   type Cue,
   type Interval,
   type OverlayAt,
@@ -28,7 +29,7 @@ import { storageKey, localPath, ensureParentDir, saveBuffer, deleteStored } from
 //   - "full": the whole script recorded in one take, with the hook on screen
 //     at the start and the CTA at the end.
 // Silences are cut, everything is normalized to 1080x1920, concatenated, and
-// rendered as 9:16 (Reels/TikTok/Shorts) and 4:5 (feed) with subtitles.
+// rendered as 9:16, 4:5 and 1:1 (OUTPUT_FORMATS) with subtitles and the brand logo.
 //
 // The result is a regular VideoAsset (contentPieceId set) with two
 // VideoVersions, so download and publishing reuse the existing video page.
@@ -40,7 +41,6 @@ export function isAssemblyStalled(piece: { assemblyStatus: string; updatedAt: Da
 }
 
 const VERTICAL = { width: 1080, height: 1920 };
-const FEED = { width: 1080, height: 1350 };
 
 type Segment = {
   take: {
@@ -146,26 +146,23 @@ export async function assembleContentPiece(pieceId: string, source: RecordingSou
       return localPath(key);
     };
 
-    const verticalKey = workKey(biz, runId, "final-9x16.mp4");
-    const feedKey = workKey(biz, runId, "final-4x5.mp4");
-    await renderFinal({
-      inputPath: localPath(joinedKey),
-      outputPath: localPath(verticalKey),
-      assPath: await assFor(VERTICAL, "subtitles-9x16.ass"),
-    });
-    await renderFinal({
-      inputPath: localPath(joinedKey),
-      outputPath: localPath(feedKey),
-      assPath: await assFor(FEED, "subtitles-4x5.ass"),
-      crop: FEED,
-    });
+    const logoPath = piece.business.logoPath ? localPath(piece.business.logoPath) : null;
+    const outputs: { label: string; key: string; thumb: string }[] = [];
+    for (const format of OUTPUT_FORMATS) {
+      const key = workKey(biz, runId, `final-${format.id}.mp4`);
+      const thumb = workKey(biz, runId, `thumb-${format.id}.jpg`);
+      await renderFinal({
+        inputPath: localPath(joinedKey),
+        outputPath: localPath(key),
+        assPath: await assFor(format, `subtitles-${format.id}.ass`),
+        crop: format.crop,
+        logoPath,
+      });
+      await extractThumbnail({ inputPath: localPath(key), outputPath: localPath(thumb), atSeconds: 0.5 });
+      outputs.push({ label: format.label, key, thumb });
+    }
 
-    const verticalThumb = workKey(biz, runId, "thumb-9x16.jpg");
-    const feedThumb = workKey(biz, runId, "thumb-4x5.jpg");
-    await extractThumbnail({ inputPath: localPath(verticalKey), outputPath: localPath(verticalThumb), atSeconds: 0.5 });
-    await extractThumbnail({ inputPath: localPath(feedKey), outputPath: localPath(feedThumb), atSeconds: 0.5 });
-
-    const { durationSeconds } = await probeMedia(localPath(verticalKey));
+    const { durationSeconds } = await probeMedia(localPath(outputs[0].key));
     const caption = pieceCaption(content);
 
     await prisma.$transaction(async (tx) => {
@@ -174,32 +171,20 @@ export async function assembleContentPiece(pieceId: string, source: RecordingSou
           businessId: biz,
           contentPieceId: pieceId,
           originalFilename: `${source === "full" ? "Video completo editado" : "Video armado"} — ${content.titulo}`,
-          originalPath: verticalKey,
+          originalPath: outputs[0].key,
           durationSeconds,
           status: "ready",
           versions: {
-            create: [
-              {
-                label: "Vertical 9:16 (Reels, TikTok, Shorts)",
-                outputPath: verticalKey,
-                thumbnailPath: verticalThumb,
-                hook: content.hook,
-                cta,
-                caption,
-                startSeconds: 0,
-                endSeconds: durationSeconds,
-              },
-              {
-                label: "Feed 4:5 (Instagram, Facebook)",
-                outputPath: feedKey,
-                thumbnailPath: feedThumb,
-                hook: content.hook,
-                cta,
-                caption,
-                startSeconds: 0,
-                endSeconds: durationSeconds,
-              },
-            ],
+            create: outputs.map((o) => ({
+              label: o.label,
+              outputPath: o.key,
+              thumbnailPath: o.thumb,
+              hook: content.hook,
+              cta,
+              caption,
+              startSeconds: 0,
+              endSeconds: durationSeconds,
+            })),
           },
         },
       });

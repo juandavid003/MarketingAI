@@ -1,17 +1,17 @@
 import { notFound } from "next/navigation";
-import { CheckCircle2, ExternalLink, Download } from "lucide-react";
+import { CheckCircle2, ExternalLink, Download, Package, Send } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireBusinessAccess } from "@/lib/dal";
 import type { Transcript } from "@/lib/whisper";
-import { publishVideoVersion, retryVideoProcessing } from "../../video-actions";
+import { retryVideoProcessing } from "../../video-actions";
 import { fileUrl } from "@/lib/storage";
 import { isStalled } from "@/lib/jobs/processVideo";
 import { AutoRefresh } from "@/components/AutoRefresh";
+import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { Select } from "@/components/ui/Field";
 
 const STATUS_LABEL: Record<string, string> = {
   uploaded: "Subido, preparando...",
@@ -85,6 +85,14 @@ export default async function VideoAssetPage({
             <Badge tone={STATUS_TONE[video.status] ?? "warning"}>
               {STATUS_LABEL[video.status] ?? video.status}
             </Badge>
+            {video.status === "ready" && (
+              <a
+                href={`/api/video-assets/${video.id}/package`}
+                className="inline-flex items-center gap-1 text-sm text-brand hover:underline"
+              >
+                <Package className="size-3.5" /> Paquete para publicar
+              </a>
+            )}
           </div>
         }
       />
@@ -182,24 +190,16 @@ export default async function VideoAssetPage({
                   </a>
                 )}
               </p>
-            ) : pages.length > 0 ? (
-              <form
-                action={publishVideoVersion.bind(null, id, videoAssetId, version.id)}
-                className="flex flex-wrap items-center gap-2"
-              >
-                <Select name="pageId" required className="w-auto">
-                  {pages.map((page) => (
-                    <option key={page.id} value={page.facebookPageId}>
-                      {page.name}
-                    </option>
-                  ))}
-                </Select>
-                <Button type="submit" size="sm">
-                  Publicar en Facebook
-                </Button>
-              </form>
             ) : (
-              <p className="text-sm text-muted">Conecta una página de Facebook para poder publicar.</p>
+              <div className="flex flex-wrap items-center gap-3 text-sm">
+                <Link
+                  href={`/business/${id}/publishing?version=${version.id}`}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-brand px-3 py-1.5 font-medium text-brand-foreground hover:bg-brand-hover"
+                >
+                  <Send className="size-3.5" /> Publicar o programar
+                </Link>
+                {pages.length === 0 && <span className="text-muted">Sin páginas conectadas: puedes programar un recordatorio.</span>}
+              </div>
             )}
           </div>
         </Card>

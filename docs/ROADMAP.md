@@ -61,7 +61,12 @@ Pedido del fundador: separar la app en módulos al lado del selector de negocio,
 | Si el spike sale bien: aviso "volver a grabar la escena X porque…" | M |
 | Probar la API key al guardarla | S |
 
-## Sprint 4 — Publicar en todas partes (con lo que permiten las APIs)
+## Sprint 4 — Publicar en todas partes (con lo que permiten las APIs) ✅ 2026-11-18
+- Módulo **Publicaciones**: publicar ahora o programar (`PublishJob`), estado, 3 intentos con reintento a los 5 y 20 min, errores visibles, “Reintentar”. Programador en el proceso web (`src/instrumentation.ts` → `lib/jobs/publishScheduler.ts`, cada minuto).
+- Facebook (video en la página) e **Instagram Reels** vía Content Publishing API con URL firmada temporal (`lib/signedMedia.ts`, `/api/media`). Instagram queda apagado hasta que Meta apruebe `instagram_content_publish` (`META_REQUEST_IG_PUBLISH=true`).
+- TikTok / YouTube / manual: recordatorio + **paquete** zip (formatos, portadas, textos por red) + “Ya lo publiqué”.
+- Formatos 9:16, 4:5 y **1:1**; **logo** de la marca en los videos (Perfil → Logo).
+
 | Tarea | Complejidad |
 |---|---|
 | Publicar en Instagram (Reels) vía Content Publishing API (URL firmada temporal) | M |

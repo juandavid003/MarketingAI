@@ -17,6 +17,7 @@ import {
   probeMedia,
   totalLength,
   overlayWindow,
+  OUTPUT_FORMATS,
   type Cue,
   type Interval,
   type OverlayAt,
@@ -42,10 +43,7 @@ export function areVariantsStalled(variants: { renderStatus: string; updatedAt: 
   return active.length > 0 && active.every((v) => Date.now() - v.updatedAt.getTime() > VARIANTS_STALL_AFTER_MS);
 }
 
-const ASPECTS = [
-  { id: "9x16", width: 1080, height: 1920, crop: undefined, label: "Vertical 9:16 (Reels, TikTok, Shorts)" },
-  { id: "4x5", width: 1080, height: 1350, crop: { width: 1080, height: 1350 }, label: "Feed 4:5 (Instagram, Facebook)" },
-] as const;
+const ASPECTS = OUTPUT_FORMATS;
 
 type TakeRow = {
   id: string;
@@ -123,6 +121,7 @@ class RenderContext {
   private normalized = new Map<string, Promise<Normalized>>();
   private finals = new Map<string, Promise<string>>();
   private brandAssColor: string | null;
+  private logoPath: string | null;
 
   constructor(
     private piece: {
@@ -131,7 +130,7 @@ class RenderContext {
       content: string;
       strategy: string | null;
       takes: (TakeRow & { sceneNumber: number; slot: string; status: string })[];
-      business: { brandColors: string | null };
+      business: { brandColors: string | null; logoPath: string | null };
     },
     private tmpPrefix: string,
     private runId: string
@@ -141,6 +140,7 @@ class RenderContext {
     if (!strategy) throw new Error("Esta pieza no tiene plan de distribución.");
     this.strategy = strategy;
     this.brandAssColor = hexToAssColor(firstBrandColor(piece.business.brandColors));
+    this.logoPath = piece.business.logoPath ? localPath(piece.business.logoPath) : null;
   }
 
   private take(sceneNumber: number, slot: string) {
@@ -208,7 +208,7 @@ class RenderContext {
           await saveBuffer(`${base}.ass`, Buffer.from(cuesToAss(cues, { ...aspect, brandAssColor: this.brandAssColor }), "utf8"));
           assPath = localPath(`${base}.ass`);
         }
-        await renderFinal({ inputPath: norm.path, outputPath: localPath(`${base}.mp4`), assPath, crop: aspect.crop });
+        await renderFinal({ inputPath: norm.path, outputPath: localPath(`${base}.mp4`), assPath, crop: aspect.crop, logoPath: this.logoPath });
         return localPath(`${base}.mp4`);
       })();
       this.finals.set(cacheKey, job);

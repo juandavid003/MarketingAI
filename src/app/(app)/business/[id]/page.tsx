@@ -37,6 +37,7 @@ export default async function BusinessOverviewPage({
       prisma.videoAsset.count({ where: { businessId: id } }),
       prisma.trackedLink.count({ where: { businessId: id, archived: false } }),
       prisma.competitor.count({ where: { businessId: id } }),
+      prisma.publishJob.count({ where: { businessId: id, status: "scheduled" } }),
     ]),
     prisma.contentPlanItem.findMany({
       where: { businessId: id, date: { gte: today, lt: addDays(today, 7) } },
@@ -46,7 +47,7 @@ export default async function BusinessOverviewPage({
     prisma.lead.findMany({ where: { businessId: id, occurredAt: { gte: since30 } }, select: { status: true } }),
     prisma.linkClick.count({ where: { link: { businessId: id }, createdAt: { gte: since30 } } }),
   ]);
-  const [campaigns, pieces, plans, scheduled, videos, links, competitors] = counts;
+  const [campaigns, pieces, plans, scheduled, videos, links, competitors, queued] = counts;
   const won30 = leads30.filter((l) => l.status === "won").length;
   const profile = profileCompleteness(business);
   const objectiveLabel = OBJECTIVES.find((o) => o.value === business.objective)?.label ?? business.objective;
@@ -67,6 +68,7 @@ export default async function BusinessOverviewPage({
     distribution: `${plans} planes de distribución`,
     calendar: `${scheduled} publicaciones próximas`,
     videos: `${videos} videos`,
+    publishing: `${queued} programadas`,
     links: `${links} enlaces · ${clicks30} clics en 30 días`,
     leads: `${leads30.length} leads en 30 días`,
     results: `${won30} clientes en 30 días`,

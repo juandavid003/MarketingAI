@@ -234,6 +234,9 @@ export function cuesToAss(cues: Cue[], opts: { width: number; height: number; br
   const subSize = Math.round(width * 0.06);
   const topSize = Math.round(width * 0.065);
   const side = Math.round(width * 0.07);
+  // Below the logo slot (logoBox) so the text box never covers the logo.
+  const logo = logoBox(width, height);
+  const topMargin = Math.round(Math.max(height * 0.09, logo.y + logo.h + topSize * 0.6));
   const clean = (t: string) => t.replace(/[{}\\]/g, "").replace(/\r?\n/g, "\\N");
 
   const header = `[Script Info]
@@ -246,7 +249,7 @@ ScaledBorderAndShadow: yes
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Sub,DejaVu Sans,${subSize},&H00FFFFFF,&H00FFFFFF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,${Math.round(subSize * 0.09)},0,2,${side},${side},${Math.round(height * 0.12)},1
-Style: Top,DejaVu Sans,${topSize},&H00FFFFFF,&H00FFFFFF,${box},${box},-1,0,0,0,100,100,0,0,3,${Math.round(topSize * 0.3)},0,8,${side},${side},${Math.round(height * 0.09)},1
+Style: Top,DejaVu Sans,${topSize},&H00FFFFFF,&H00FFFFFF,${box},${box},-1,0,0,0,100,100,0,0,3,${Math.round(topSize * 0.3)},0,8,${side},${side},${topMargin},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -349,21 +352,47 @@ export async function concatScenes(scenePaths: string[], listPath: string, outpu
   );
 }
 
-// Final render for one aspect ratio: optional center crop (e.g. 9:16 → 4:5)
-// and burned-in subtitles (an ASS script built for that output size).
+// Final render for one aspect ratio: optional center crop (9:16 → 4:5 or
+// 1:1), burned-in subtitles (an ASS script built for that output size) and
+// the brand logo in the top-left corner — clear of the platforms' buttons on
+// the right and of the on-screen text box, which starts lower.
 export async function renderFinal(input: {
   inputPath: string;
   outputPath: string;
   assPath: string | null;
   crop?: { width: number; height: number };
+  logoPath?: string | null;
 }): Promise<void> {
   const filters: string[] = [];
   if (input.crop) filters.push(`crop=${input.crop.width}:${input.crop.height}`);
   if (input.assPath) filters.push(`ass='${escapeForFilter(input.assPath)}'`);
   const args = ["-y", "-i", input.inputPath];
-  if (filters.length > 0) args.push("-vf", filters.join(","));
+  if (input.logoPath) {
+    const { width, height } = input.crop ?? { width: 1080, height: 1920 };
+    const box = logoBox(width, height);
+    args.push("-i", input.logoPath);
+    const base = filters.length > 0 ? `[0:v]${filters.join(",")}[base]` : "[0:v]null[base]";
+    args.push(
+      "-filter_complex",
+      `${base};[1:v]scale=${box.w}:${box.h}:force_original_aspect_ratio=decrease,format=rgba[logo];[base][logo]overlay=${box.x}:${box.y}:format=auto,format=yuv420p[v]`,
+      "-map",
+      "[v]",
+      "-map",
+      "0:a?"
+    );
+  } else if (filters.length > 0) {
+    args.push("-vf", filters.join(","));
+  }
   args.push(...ENCODE_ARGS, input.outputPath);
   await execFileAsync(ffmpegPath(), args, { maxBuffer: 1024 * 1024 * 64 });
+}
+
+// Logo size and position for an output: at most 16% of the width and 6% of
+// the height, inset 4% of the width from the top-left corner.
+export function logoBox(width: number, height: number): { w: number; h: number; x: number; y: number } {
+  const even = (n: number) => Math.max(2, Math.round(n / 2) * 2);
+  const inset = Math.round(width * 0.04);
+  return { w: even(width * 0.16), h: even(height * 0.06), x: inset, y: inset };
 }
 
 // Where an on-screen overlay sits inside a segment of `length` seconds:
@@ -376,3 +405,12 @@ export function overlayWindow(at: OverlayAt, length: number): Interval {
   const span = Math.min(at === "start" ? 4 : 5, length / 3);
   return at === "start" ? [0, span] : [Math.max(0, length - span), length];
 }
+
+// Every assembled video and creative comes out in these formats, cropped
+// from the same 1080x1920 master.
+export const OUTPUT_FORMATS = [
+  { id: "9x16", width: 1080, height: 1920, crop: undefined, label: "Vertical 9:16 (Reels, TikTok, Shorts)" },
+  { id: "4x5", width: 1080, height: 1350, crop: { width: 1080, height: 1350 }, label: "Feed 4:5 (Instagram, Facebook)" },
+  { id: "1x1", width: 1080, height: 1080, crop: { width: 1080, height: 1080 }, label: "Cuadrado 1:1 (feed, anuncios)" },
+] as const;
+export type OutputFormat = (typeof OUTPUT_FORMATS)[number];

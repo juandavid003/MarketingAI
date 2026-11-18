@@ -36,6 +36,9 @@ export const META_SCOPES = [
   // lib/competitorDiscovery.ts). Opt-in: requesting it before it's enabled
   // for the app in Meta's dashboard makes the OAuth dialog fail entirely.
   ...(process.env.META_REQUEST_IG_INSIGHTS === "true" ? ["instagram_manage_insights"] : []),
+  // Instagram Reels publishing (lib/instagramPublish.ts). Same opt-in rule:
+  // enable it for the app in Meta's dashboard first.
+  ...(process.env.META_REQUEST_IG_PUBLISH === "true" ? ["instagram_content_publish"] : []),
   ...(ADS_ENABLED ? ["ads_management"] : []),
 ].join(",");
 

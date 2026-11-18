@@ -65,6 +65,9 @@ model Business {
   // video: framing, light, focus, movement). Optional, client-owned.
   geminiApiKeyEncrypted String?
 
+  // Brand logo (storage key), overlaid on assembled videos.
+  logoPath String?
+
   products         Product[]
   socialConnection SocialConnection?
   campaigns        Campaign[]
@@ -76,6 +79,7 @@ model Business {
   trackedLinks     TrackedLink[]
   promoCodes       PromoCode[]
   leads            Lead[]
+  publishJobs      PublishJob[]
 }
 
 // name is a free-text search term, matched against the public Meta Ad
@@ -362,6 +366,7 @@ model VideoVersion {
   createdAt     DateTime   @default(now())
 
   publishedVideos PublishedVideo[]
+  publishJobs     PublishJob[]
 }
 
 model PublishedVideo {
@@ -538,6 +543,7 @@ model ContentPlanItem {
   trackedLink    TrackedLink?  @relation(fields: [trackedLinkId], references: [id], onDelete: SetNull)
   trackedLinkId  String?
   publishedUrl   String?
+  publishJobs    PublishJob[]
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @default(now()) @updatedAt
 
@@ -630,4 +636,37 @@ model Lead {
   updatedAt      DateTime      @default(now()) @updatedAt
 
   @@index([businessId, occurredAt])
+}
+
+// ---------------------------------------------------------------------------
+// Sprint 4 — scheduled publishing. One row per (video version, destination,
+// time). facebook_page / instagram_reels run automatically (lib/jobs/
+// publishJobs.ts, polled every minute); "manual" is a reminder for networks
+// without direct publishing (TikTok, YouTube...) that the owner marks done.
+// ---------------------------------------------------------------------------
+model PublishJob {
+  id             String           @id @default(cuid())
+  business       Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId     String
+  videoVersion   VideoVersion     @relation(fields: [videoVersionId], references: [id], onDelete: Cascade)
+  videoVersionId String
+  planItem       ContentPlanItem? @relation(fields: [planItemId], references: [id], onDelete: SetNull)
+  planItemId     String?
+  target         String // facebook_page | instagram_reels | manual
+  socialPageId   String? // SocialPage.id for facebook_page / instagram_reels
+  platform       String // facebook | instagram | tiktok | youtube | other (display + manual)
+  caption        String
+  scheduledAt    DateTime
+  status         String           @default("scheduled") // scheduled | publishing | published | failed | canceled
+  attempts       Int              @default(0)
+  nextAttemptAt  DateTime?
+  lastError      String?
+  externalId     String?
+  permalink      String?
+  publishedAt    DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @default(now()) @updatedAt
+
+  @@index([status, scheduledAt])
+  @@index([businessId, scheduledAt])
 }

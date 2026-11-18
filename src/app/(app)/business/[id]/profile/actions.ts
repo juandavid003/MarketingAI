@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireBusinessAccess } from "@/lib/dal";
 import { OBJECTIVES, PLATFORMS, CONTENT_LANGUAGES } from "@/lib/constants";
+import { redirect } from "next/navigation";
+import { storageKey, saveUpload, deleteStored } from "@/lib/storage";
 
 export type ProfileFormState = {
   error?: string;
@@ -128,4 +130,37 @@ export async function updateBusinessProfile(
   revalidatePath(`/business/${businessId}`);
   revalidatePath(`/business/${businessId}/profile`);
   return { success: true };
+}
+
+// ---------------------------------------------------------------------------
+// Brand logo (overlaid on assembled videos, lib/videoEdit.ts renderFinal)
+// ---------------------------------------------------------------------------
+
+const LOGO_TYPES: Record<string, string> = { "image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp" };
+const MAX_LOGO_BYTES = 2 * 1024 * 1024;
+
+export async function uploadLogo(businessId: string, formData: FormData) {
+  const { business } = await requireBusinessAccess(businessId);
+  const file = formData.get("logo");
+  const back = (error?: string) =>
+    redirect(`/business/${businessId}/profile${error ? `?logo_error=${encodeURIComponent(error)}` : "?logo=1"}#logo`);
+  if (!(file instanceof File) || file.size === 0) back("Elige una imagen.");
+  const f = file as File;
+  const ext = LOGO_TYPES[f.type];
+  if (!ext) back("El logo debe ser PNG, JPG o WEBP (mejor PNG con fondo transparente).");
+  if (f.size > MAX_LOGO_BYTES) back("El logo debe pesar menos de 2 MB.");
+
+  const key = storageKey(businessId, "brand", `logo-${Date.now()}${ext}`);
+  await saveUpload(key, f);
+  await prisma.business.update({ where: { id: businessId }, data: { logoPath: key } });
+  if (business.logoPath) await deleteStored(business.logoPath).catch(() => {});
+  revalidatePath(`/business/${businessId}/profile`);
+  back();
+}
+
+export async function removeLogo(businessId: string) {
+  const { business } = await requireBusinessAccess(businessId);
+  await prisma.business.update({ where: { id: businessId }, data: { logoPath: null } });
+  if (business.logoPath) await deleteStored(business.logoPath).catch(() => {});
+  revalidatePath(`/business/${businessId}/profile`);
 }

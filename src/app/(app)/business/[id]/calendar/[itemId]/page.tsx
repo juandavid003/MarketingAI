@@ -139,6 +139,17 @@ export default async function PlanItemPage({
         </ul>
       </Card>
 
+      {item.status !== "published" && (
+        <div className="mt-4">
+          <Link
+            href={`/business/${id}/publishing?item=${item.id}`}
+            className="inline-flex items-center gap-2 rounded-md bg-brand px-4 py-2 text-sm font-medium text-brand-foreground hover:bg-brand-hover"
+          >
+            Publicar o programar esta publicación
+          </Link>
+        </div>
+      )}
+
       <h2 className="mt-8 text-lg font-semibold">Editar</h2>
       <Card className="mt-3 p-5">
         <PlanItemForm

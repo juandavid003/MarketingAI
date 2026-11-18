@@ -4,13 +4,19 @@ import { requireBusinessAccess } from "@/lib/dal";
 import { profileCompleteness } from "@/lib/profileCompleteness";
 import { PageHeader } from "@/components/ui/PageHeader";
 import ProfileForm from "./ProfileForm";
+import { uploadLogo, removeLogo } from "./actions";
+import { fileUrl } from "@/lib/storage";
+import { Button } from "@/components/ui/Button";
 
 export default async function BusinessProfileEditPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ logo?: string; logo_error?: string }>;
 }) {
   const { id } = await params;
+  const sp = await searchParams;
   await requireBusinessAccess(id);
 
   const business = await prisma.business.findUnique({
@@ -39,6 +45,35 @@ export default async function BusinessProfileEditPage({
           <p className="mt-2 text-xs text-muted">Falta: {missing.join(", ")}.</p>
         )}
       </div>
+
+      <section id="logo" className="mb-8 rounded-lg border border-border p-4">
+        <p className="font-medium">Logo de la marca</p>
+        <p className="mt-1 text-sm text-muted">
+          Aparece pequeño en la esquina superior izquierda de los videos que armamos y de los creativos. Mejor PNG con
+          fondo transparente.
+        </p>
+        {sp.logo_error && <p className="mt-2 text-sm text-red-700 dark:text-red-400">{sp.logo_error}</p>}
+        {sp.logo === "1" && <p className="mt-2 text-sm text-green-700 dark:text-green-400">Logo guardado. Se usará en los próximos videos que armes.</p>}
+        <div className="mt-3 flex flex-wrap items-center gap-4">
+          {business.logoPath && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={fileUrl(business.logoPath)} alt="Logo actual" className="h-14 max-w-32 rounded border border-border bg-[repeating-conic-gradient(#e5e5e5_0_25%,transparent_0_50%)] bg-[length:12px_12px] object-contain p-1" />
+          )}
+          <form action={uploadLogo.bind(null, business.id)} className="flex flex-wrap items-center gap-2">
+            <input name="logo" type="file" accept="image/png,image/jpeg,image/webp" required className="text-sm" />
+            <Button type="submit" size="sm" variant="secondary">
+              {business.logoPath ? "Cambiar logo" : "Subir logo"}
+            </Button>
+          </form>
+          {business.logoPath && (
+            <form action={removeLogo.bind(null, business.id)}>
+              <button type="submit" className="text-xs text-faint hover:text-red-600">
+                Quitar
+              </button>
+            </form>
+          )}
+        </div>
+      </section>
 
       <ProfileForm
         businessId={business.id}
