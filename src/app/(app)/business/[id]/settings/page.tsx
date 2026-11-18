@@ -2,11 +2,13 @@ import { notFound } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireBusinessAccess } from "@/lib/dal";
-import { clearAiSettings, clearTranscriptionKey, clearImageKey } from "../actions";
+import { clearAiSettings, clearTranscriptionKey, clearImageKey, clearGeminiKey } from "../actions";
+import { parseReview } from "@/lib/takeReview";
+import { GEMINI_VIDEO_MODEL } from "@/lib/visualReview";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import AiSettingsForm from "./AiSettingsForm";
+import AiSettingsForm, { GeminiKeyForm } from "./AiSettingsForm";
 
 const PROVIDER_LABEL: Record<string, string> = {
   anthropic: "Anthropic (Claude)",
@@ -31,11 +33,27 @@ export default async function AiSettingsPage({
       aiConfiguredAt: true,
       openaiTranscriptionKeyEncrypted: true,
       openaiImageKeyEncrypted: true,
+      geminiApiKeyEncrypted: true,
     },
   });
 
   if (!business) {
     notFound();
+  }
+
+  // Gemini spike: what the visual reviews have cost so far.
+  const reviewed = await prisma.sceneTake.findMany({
+    where: { contentPiece: { businessId: id }, review: { contains: '"visual"' } },
+    select: { review: true },
+  });
+  const visualStats = { count: 0, rerecord: 0, cost: 0, tokens: 0 };
+  for (const t of reviewed) {
+    const visual = parseReview(t.review)?.visual;
+    if (!visual) continue;
+    visualStats.count++;
+    if (visual.verdict === "rerecord") visualStats.rerecord++;
+    visualStats.cost += visual.costUsd;
+    visualStats.tokens += visual.inputTokens + visual.outputTokens;
   }
 
   return (
@@ -69,6 +87,28 @@ export default async function AiSettingsPage({
       <div className="mt-6">
         <AiSettingsForm businessId={business.id} />
       </div>
+
+      <section className="mt-12 space-y-3 border-t border-border pt-8">
+        <h2 className="text-lg font-semibold">Revisión visual de tomas (Gemini)</h2>
+        {business.geminiApiKeyEncrypted ? (
+          <ConfiguredRow label="Google Gemini: configurada y verificada" onClear={clearGeminiKey.bind(null, business.id)} />
+        ) : (
+          <GeminiKeyForm businessId={business.id} />
+        )}
+        {visualStats.count > 0 && (
+          <Card className="p-4 text-sm">
+            <p className="font-medium">Uso hasta ahora</p>
+            <p className="mt-1 text-muted">
+              {visualStats.count} tomas revisadas · {visualStats.rerecord} con aviso de regrabar · costo estimado total US$
+              {visualStats.cost.toFixed(4)} (≈ US${(visualStats.cost / visualStats.count).toFixed(4)} por toma,{" "}
+              {Math.round(visualStats.tokens / visualStats.count).toLocaleString("es")} tokens en promedio).
+            </p>
+            <p className="mt-1 text-xs text-faint">
+              Estimado con precios de referencia de {GEMINI_VIDEO_MODEL}; el cobro real lo ves en tu cuenta de Google.
+            </p>
+          </Card>
+        )}
+      </section>
     </main>
   );
 }

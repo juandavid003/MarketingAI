@@ -45,7 +45,13 @@ Pedido del fundador: separar la app en módulos al lado del selector de negocio,
 | Registro de leads (origen, estado, valor) | M |
 | Panel **Resultados**: plataforma vs negocio, separados, con confianza de atribución | M |
 
-## Sprint 3 — Del plan al video correcto
+## Sprint 3 — Del plan al video correcto ✅ 2026-11-18
+- Plan semanal multiformato: Manager de contenido. Textos y hashtags **por red** para cada guion (`lib/platformCopy.ts`).
+- Video completo "para el guion X" (toma `full`): se edita como el armado por escenas y sirve para los creativos.
+- Quitar silencios: hecho (`lib/videoEdit.ts`).
+- **Gemini (spike listo para medir):** revisión visual por toma con la key de Gemini del cliente (`lib/visualReview.ts`), con tokens y costo estimado por toma en Configuración → IA. Falta correrlo con 5–10 videos reales y decidir.
+- Las keys (Anthropic, OpenAI, Gemini) y el modelo efectivo se verifican al guardarlas (`lib/keyCheck.ts`).
+
 | Tarea | Complejidad |
 |---|---|
 | Plan semanal (pilares, propósito, día, formato, hook) + captions y hashtags por plataforma | M |

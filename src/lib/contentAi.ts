@@ -362,3 +362,39 @@ Responde ÚNICAMENTE con JSON válido: { "veredicto": "ok" | "regrabar", "motivo
     consejo: str(v?.consejo),
   };
 }
+
+// ---------------------------------------------------------------------------
+// Whole video recorded in one take ("lo grabé todo de una vez")
+// ---------------------------------------------------------------------------
+
+// A take in this slot (scene number 0) covers the whole script: it can be
+// assembled into the final video and the creatives instead of scene takes.
+export const FULL_TAKE_SLOT = "full";
+export const FULL_TAKE_SCENE = 0;
+
+// The script as a single scene, to review a full take against it.
+export function wholeScriptScene(piece: GeneratedContentPiece): PieceScene {
+  return {
+    numero: FULL_TAKE_SCENE,
+    duracionSegundos: piece.escenas.reduce((s, e) => s + e.duracionSegundos, 0) || piece.duracionTotalSegundos,
+    queMostrar: piece.escenas.map((e) => e.queMostrar).filter(Boolean).join(" / "),
+    queDecir: piece.escenas.map((e) => e.queDecir).filter(Boolean).join(" "),
+    textoPantalla: piece.hook,
+    comoGrabar: piece.escenas.map((e) => e.comoGrabar).filter(Boolean).join(" / "),
+  };
+}
+
+export type RecordingSource = "scenes" | "full";
+
+// What the owner has recorded so far: every scene as its own take, and/or
+// the whole script in one take.
+export function recordingStatus(
+  piece: GeneratedContentPiece,
+  takes: { slot: string; status: string; sceneNumber: number }[]
+): { scenesReady: boolean; fullReady: boolean } {
+  const ready = new Set(takes.filter((t) => t.slot === "main" && t.status === "ready").map((t) => t.sceneNumber));
+  return {
+    scenesReady: piece.escenas.length > 0 && piece.escenas.every((s) => ready.has(s.numero)),
+    fullReady: takes.some((t) => t.slot === FULL_TAKE_SLOT && t.status === "ready"),
+  };
+}

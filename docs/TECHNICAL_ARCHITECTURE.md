@@ -90,6 +90,9 @@
 | `RESEND_API_KEY`, `EMAIL_FROM` | Correo transaccional (opcional) |
 | `FEATURE_ADS` | `true` reactiva la pauta |
 | `META_REQUEST_IG_INSIGHTS` | `true` pide `instagram_manage_insights` en el login de Meta (Business Discovery de competidores). Activar solo después de habilitarlo en el panel de la app. |
+| `PUBLIC_APP_URL` | Opcional. URL pública usada en enlaces rastreables (`/r/...`), QR y redirecciones de route handlers; si falta se usa `BETTER_AUTH_URL`. |
+| `GEMINI_VIDEO_MODEL` | Opcional. Modelo de Gemini para la revisión visual de tomas (por defecto `gemini-2.5-flash`). |
+| `GEMINI_PRICE_INPUT_PER_M` / `GEMINI_PRICE_OUTPUT_PER_M` | Opcional. Precios de referencia (USD por 1M tokens) para el costo estimado que se muestra; el cobro real lo hace Google a la key del cliente. |
 
 ## Riesgos técnicos
 

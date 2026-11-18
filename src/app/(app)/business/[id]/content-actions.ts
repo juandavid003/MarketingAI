@@ -14,6 +14,10 @@ import {
   generateContentPiece,
   postMetricsSummary,
   purposeLabel,
+  recordingStatus,
+  FULL_TAKE_SLOT,
+  FULL_TAKE_SCENE,
+  type RecordingSource,
   type GeneratedCompetitorIdeas,
   type GeneratedContentPiece,
   type PieceBrief,
@@ -21,6 +25,7 @@ import {
 import { storageKey, saveUpload, deleteStored } from "@/lib/storage";
 import { processSceneTake, isTakeStalled } from "@/lib/jobs/processTake";
 import { parseStrategy } from "@/lib/distribution";
+import { generatePlatformCopy, copyPlatformsFor } from "@/lib/platformCopy";
 import { assembleContentPiece, isAssemblyStalled } from "@/lib/jobs/assemblePiece";
 
 const MAX_TAKE_BYTES = 300 * 1024 * 1024;
@@ -212,8 +217,15 @@ export async function uploadSceneTake(
     return { error: "Espera a que termine de armarse el video antes de cambiar una toma." };
   }
   const content = JSON.parse(piece.content) as GeneratedContentPiece;
-  if (!content.escenas.some((s) => s.numero === sceneNumber)) return { error: "Esa escena no existe." };
-  if (slot !== "main") {
+  if (slot === FULL_TAKE_SLOT) {
+    // The whole script recorded in one video.
+    if (sceneNumber !== FULL_TAKE_SCENE) return { error: "Toma inválida." };
+    if (piece.variantsStatus === "rendering") {
+      return { error: "Espera a que terminen de generarse los creativos antes de cambiar el video." };
+    }
+  } else if (!content.escenas.some((s) => s.numero === sceneNumber)) {
+    return { error: "Esa escena no existe." };
+  } else if (slot !== "main") {
     // Alternative openings replace scene 1 for one hook of the plan.
     const hook = parseStrategy(piece.strategy)?.hooks.find((h) => `hook:${h.codigo}` === slot);
     if (!hook || hook.original || sceneNumber !== 1) return { error: "Ese hook ya no existe en el plan." };
@@ -285,7 +297,7 @@ export async function retryTake(businessId: string, pieceId: string, takeId: str
 // Assembly
 // ---------------------------------------------------------------------------
 
-export async function assemblePiece(businessId: string, pieceId: string) {
+export async function assemblePiece(businessId: string, pieceId: string, source: RecordingSource) {
   await requireBusinessAccess(businessId);
   const piece = await prisma.contentPiece.findFirst({
     where: { id: pieceId, businessId },
@@ -294,11 +306,12 @@ export async function assemblePiece(businessId: string, pieceId: string) {
   if (!piece) redirect(`/business/${businessId}`);
 
   const content = JSON.parse(piece.content) as GeneratedContentPiece;
-  const ready = new Set(
-    piece.takes.filter((t) => t.status === "ready" && t.slot === "main").map((t) => t.sceneNumber)
-  );
-  if (!content.escenas.every((s) => ready.has(s.numero))) {
+  const status = recordingStatus(content, piece.takes);
+  if (source === "scenes" && !status.scenesReady) {
     redirect(withError(piecePath(businessId, pieceId), "Sube y espera a que estén listas todas las escenas."));
+  }
+  if (source === "full" && !status.fullReady) {
+    redirect(withError(piecePath(businessId, pieceId), "Sube el video completo y espera a que esté listo."));
   }
 
   // Atomic claim: a double click can't start two renders.
@@ -309,6 +322,32 @@ export async function assemblePiece(businessId: string, pieceId: string) {
     },
     data: { assemblyStatus: "assembling", assemblyError: null },
   });
-  if (claimed.count > 0) after(() => assembleContentPiece(pieceId));
+  if (claimed.count > 0) after(() => assembleContentPiece(pieceId, source));
   redirect(piecePath(businessId, pieceId));
+}
+
+// ---------------------------------------------------------------------------
+// Captions per platform
+// ---------------------------------------------------------------------------
+
+export async function generatePieceCopy(businessId: string, pieceId: string) {
+  await requireBusinessAccess(businessId);
+  const piece = await prisma.contentPiece.findFirst({ where: { id: pieceId, businessId } });
+  if (!piece) redirect(`/business/${businessId}/copywriter`);
+  const business = await prisma.business.findUniqueOrThrow({ where: { id: businessId }, include: { products: true } });
+  const ai = businessAi(business);
+  if (!ai) redirect(`/business/${businessId}/settings`);
+  try {
+    const copy = await generatePlatformCopy(
+      ai,
+      toAiBusiness(business),
+      JSON.parse(piece.content) as GeneratedContentPiece,
+      copyPlatformsFor(business.mainPlatforms)
+    );
+    await prisma.contentPiece.update({ where: { id: pieceId }, data: { platformCopy: JSON.stringify(copy) } });
+  } catch (err) {
+    redirect(withError(piecePath(businessId, pieceId), err instanceof Error ? err.message : "No se pudieron generar los textos."));
+  }
+  revalidatePath(piecePath(businessId, pieceId));
+  redirect(`${piecePath(businessId, pieceId)}#textos`);
 }

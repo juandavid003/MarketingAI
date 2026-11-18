@@ -2,7 +2,7 @@ import "server-only";
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { shortErrorMessage } from "@/lib/errors";
-import { pieceCaption, type GeneratedContentPiece } from "@/lib/contentAi";
+import { pieceCaption, FULL_TAKE_SLOT, type GeneratedContentPiece, type RecordingSource } from "@/lib/contentAi";
 import type { Transcript } from "@/lib/whisper";
 import { extractThumbnail } from "@/lib/video";
 import {
@@ -15,14 +15,20 @@ import {
   firstBrandColor,
   probeMedia,
   totalLength,
+  overlayWindow,
+  type Cue,
   type Interval,
+  type OverlayAt,
 } from "@/lib/videoEdit";
 import { storageKey, localPath, ensureParentDir, saveBuffer, deleteStored } from "@/lib/storage";
 
-// Assembles the final video for a ContentPiece from its scene takes, in
-// script order: silences cut, normalized to 1080x1920, concatenated, then
-// rendered as 9:16 (Reels/TikTok/Shorts) and 4:5 (feed) with subtitles and
-// each scene's on-screen text in the brand color.
+// Assembles the final video for a ContentPiece, from either
+//   - "scenes": one take per scene, in script order, each with its own
+//     on-screen text; or
+//   - "full": the whole script recorded in one take, with the hook on screen
+//     at the start and the CTA at the end.
+// Silences are cut, everything is normalized to 1080x1920, concatenated, and
+// rendered as 9:16 (Reels/TikTok/Shorts) and 4:5 (feed) with subtitles.
 //
 // The result is a regular VideoAsset (contentPieceId set) with two
 // VideoVersions, so download and publishing reuse the existing video page.
@@ -36,7 +42,18 @@ export function isAssemblyStalled(piece: { assemblyStatus: string; updatedAt: Da
 const VERTICAL = { width: 1080, height: 1920 };
 const FEED = { width: 1080, height: 1350 };
 
-export async function assembleContentPiece(pieceId: string): Promise<void> {
+type Segment = {
+  take: {
+    originalPath: string;
+    durationSeconds: number | null;
+    hasAudio: boolean | null;
+    keepIntervals: string | null;
+    transcript: string | null;
+  };
+  overlays: { text: string; at: OverlayAt }[];
+};
+
+export async function assembleContentPiece(pieceId: string, source: RecordingSource = "scenes"): Promise<void> {
   // Claimed by the action (assemblyStatus → "assembling") before scheduling.
   const workKey = (biz: string, run: string, name: string) => storageKey(biz, "pieces", pieceId, "renders", run, name);
   let tmpPrefix: string | null = null;
@@ -47,26 +64,47 @@ export async function assembleContentPiece(pieceId: string): Promise<void> {
       include: { takes: true, business: true },
     });
     const content = JSON.parse(piece.content) as GeneratedContentPiece;
-    const takeByScene = new Map(piece.takes.filter((t) => t.slot === "main").map((t) => [t.sceneNumber, t]));
+    const cta = content.ctas[0] ?? null;
 
-    const missing = content.escenas.filter((s) => takeByScene.get(s.numero)?.status !== "ready");
-    if (missing.length > 0) {
-      throw new Error(`Faltan tomas listas para: ${missing.map((s) => `escena ${s.numero}`).join(", ")}.`);
+    let segments: Segment[];
+    if (source === "full") {
+      const full = piece.takes.find((t) => t.slot === FULL_TAKE_SLOT && t.status === "ready");
+      if (!full) throw new Error("Falta el video completo listo.");
+      segments = [
+        {
+          take: full,
+          overlays: [
+            { text: content.escenas[0]?.textoPantalla || content.hook, at: "start" },
+            { text: cta ?? "", at: "end" },
+          ],
+        },
+      ];
+    } else {
+      const takeByScene = new Map(piece.takes.filter((t) => t.slot === "main").map((t) => [t.sceneNumber, t]));
+      const missing = content.escenas.filter((s) => takeByScene.get(s.numero)?.status !== "ready");
+      if (missing.length > 0) {
+        throw new Error(`Faltan tomas listas para: ${missing.map((s) => `escena ${s.numero}`).join(", ")}.`);
+      }
+      segments = content.escenas.map((scene) => ({
+        take: takeByScene.get(scene.numero)!,
+        overlays: [{ text: scene.textoPantalla || (scene.numero === 1 ? content.hook : ""), at: "whole" as const }],
+      }));
     }
 
     const runId = randomUUID().slice(0, 8);
     const biz = piece.businessId;
     tmpPrefix = storageKey(biz, "pieces", pieceId, "renders", runId, "tmp");
 
-    // 1) Normalize every take (cut silences, same size/fps/audio).
-    const scenePaths: string[] = [];
-    const cueScenes: Parameters<typeof buildAssemblyCues>[0] = [];
+    // 1) Normalize every segment (cut silences, same size/fps/audio) and
+    //    build its cues on the joined timeline.
+    const segmentPaths: string[] = [];
+    const cues: Cue[] = [];
     let offset = 0;
-    for (const scene of content.escenas) {
-      const take = takeByScene.get(scene.numero)!;
+    for (const [i, segment] of segments.entries()) {
+      const { take } = segment;
       const keep = JSON.parse(take.keepIntervals ?? "null") as Interval[] | null;
       const intervals = keep && keep.length > 0 ? keep : [[0, take.durationSeconds ?? 0] as Interval];
-      const outKey = `${tmpPrefix}/scene-${scene.numero}.mp4`;
+      const outKey = `${tmpPrefix}/segment-${i + 1}.mp4`;
       await ensureParentDir(outKey);
       await renderNormalizedScene({
         inputPath: localPath(take.originalPath),
@@ -75,27 +113,31 @@ export async function assembleContentPiece(pieceId: string): Promise<void> {
         hasAudio: take.hasAudio ?? false,
         ...VERTICAL,
       });
-      // Measure the rendered scene: frame rounding makes it differ slightly
+      // Measure the rendered segment: frame rounding makes it differ slightly
       // from the interval math, and subtitles must line up with reality.
-      const { durationSeconds: lengthSeconds } = await probeMedia(localPath(outKey));
+      const { durationSeconds: rendered } = await probeMedia(localPath(outKey));
+      const length = Math.min(rendered, totalLength(intervals) + 0.1);
       const transcript = take.transcript ? (JSON.parse(take.transcript) as Transcript) : null;
-      cueScenes.push({
-        offsetSeconds: offset,
-        lengthSeconds: Math.min(lengthSeconds, totalLength(intervals) + 0.1),
-        keep: intervals,
-        segments: transcript?.segments ?? [],
-        onScreenText: scene.textoPantalla || (scene.numero === 1 ? content.hook : ""),
-      });
-      offset += lengthSeconds;
-      scenePaths.push(localPath(outKey));
+      cues.push(
+        ...buildAssemblyCues([
+          { offsetSeconds: offset, lengthSeconds: length, keep: intervals, segments: transcript?.segments ?? [], onScreenText: "" },
+        ])
+      );
+      for (const o of segment.overlays) {
+        if (!o.text.trim()) continue;
+        const [start, end] = overlayWindow(o.at, length);
+        cues.push({ start: offset + start, end: offset + end, text: o.text.trim(), top: true });
+      }
+      offset += rendered;
+      segmentPaths.push(localPath(outKey));
     }
+    cues.sort((a, b) => a.start - b.start);
 
     // 2) Concatenate.
     const joinedKey = `${tmpPrefix}/joined.mp4`;
-    await concatScenes(scenePaths, localPath(`${tmpPrefix}/list.txt`), localPath(joinedKey));
+    await concatScenes(segmentPaths, localPath(`${tmpPrefix}/list.txt`), localPath(joinedKey));
 
     // 3) Subtitles + on-screen text, then one render per aspect ratio.
-    const cues = buildAssemblyCues(cueScenes);
     const brandAssColor = hexToAssColor(firstBrandColor(piece.business.brandColors));
     const assFor = async (size: { width: number; height: number }, name: string) => {
       if (cues.length === 0) return null;
@@ -125,14 +167,13 @@ export async function assembleContentPiece(pieceId: string): Promise<void> {
 
     const { durationSeconds } = await probeMedia(localPath(verticalKey));
     const caption = pieceCaption(content);
-    const cta = content.ctas[0] ?? null;
 
     await prisma.$transaction(async (tx) => {
       await tx.videoAsset.create({
         data: {
           businessId: biz,
           contentPieceId: pieceId,
-          originalFilename: `Video armado — ${content.titulo}`,
+          originalFilename: `${source === "full" ? "Video completo editado" : "Video armado"} — ${content.titulo}`,
           originalPath: verticalKey,
           durationSeconds,
           status: "ready",
@@ -174,7 +215,7 @@ export async function assembleContentPiece(pieceId: string): Promise<void> {
       .update({ where: { id: pieceId }, data: { assemblyStatus: "error", assemblyError: message } })
       .catch(() => {});
   } finally {
-    // Intermediate scene renders are big and never served.
+    // Intermediate renders are big and never served.
     if (tmpPrefix) await deleteStored(tmpPrefix).catch(() => {});
   }
 }

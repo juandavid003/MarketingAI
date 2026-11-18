@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { requireBusinessAccess } from "@/lib/dal";
 import { businessAi } from "@/lib/aiCredentials";
 import { toAiBusiness } from "@/lib/businessContext";
-import type { GeneratedContentPiece } from "@/lib/contentAi";
+import { recordingStatus, type GeneratedContentPiece } from "@/lib/contentAi";
 import { generateDistributionStrategy, parseStrategy, variantCode } from "@/lib/distribution";
 import { renderPieceVariants, areVariantsStalled } from "@/lib/jobs/renderVariants";
 
@@ -99,9 +99,9 @@ export async function renderCreatives(businessId: string, pieceId: string, formD
   if (!strategy) redirect(withError(url, "Primero genera el plan de distribución."));
 
   const content = JSON.parse(piece.content) as GeneratedContentPiece;
-  const ready = new Set(piece.takes.filter((t) => t.slot === "main" && t.status === "ready").map((t) => t.sceneNumber));
-  if (!content.escenas.every((s) => ready.has(s.numero))) {
-    redirect(withError(url, "Primero sube todas las escenas del guion y espera a que estén listas."));
+  const recorded = recordingStatus(content, piece.takes);
+  if (!recorded.scenesReady && !recorded.fullReady) {
+    redirect(withError(url, "Primero sube todas las escenas del guion (o el video completo) y espera a que estén listas."));
   }
 
   const valid = new Map<string, { hookCode: string; ctaCode: string }>();

@@ -61,6 +61,10 @@ model Business {
   // of requiring this — see resolveOpenAiImageKey in actions.ts.
   openaiImageKeyEncrypted String?
 
+  // Google Gemini key for the visual review of scene takes (it watches the
+  // video: framing, light, focus, movement). Optional, client-owned.
+  geminiApiKeyEncrypted String?
+
   products         Product[]
   socialConnection SocialConnection?
   campaigns        Campaign[]
@@ -156,6 +160,8 @@ model ContentPiece {
   // same body, the test design and a per-platform calendar. JSON
   // DistributionStrategy (lib/distribution.ts).
   strategy       String?
+  // Captions + hashtags written per platform (JSON PlatformCopy[], lib/platformCopy.ts)
+  platformCopy   String?
   // Background render of the creative variants: idle | rendering
   variantsStatus String    @default("idle")
   createdAt      DateTime  @default(now())

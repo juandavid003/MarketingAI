@@ -582,7 +582,7 @@ function HookCard({
       {!hook.original && (
         <div className="mt-3 space-y-2 border-t border-border pt-3">
           <p className="text-muted">
-            Opcional: graba otra vez la escena 1 diciendo esta frase en lugar de la original (mismo encuadre).
+            Opcional (si grabaste por escenas): graba otra vez la escena 1 diciendo esta frase en lugar de la original, con el mismo encuadre.
           </p>
           {take && (
             <div className="flex flex-wrap items-start gap-3">

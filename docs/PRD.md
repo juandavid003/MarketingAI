@@ -74,7 +74,7 @@ Que un negocio pequeño, de cualquier industria, publique contenido útil cada s
 | E6 | Quitar pausas/silencios | ✅ 2026-11-18 (ffmpeg `silencedetect`, `lib/videoEdit.ts`) |
 | E7 | Varias versiones/formatos (9:16, 1:1, 4:5) | 🟡 9:16 y 4:5 al armar un guion; 1:1 → Sprint 4 |
 | E8 | Elementos de marca (logo, colores en subtítulos) | 🟡 texto en pantalla sobre el color de marca; logo → Sprint 4 |
-| E9 | Análisis visual (Gemini) y aviso "conviene volver a grabar" con motivo | 🟡 aviso por toma basado en audio (reglas de voz/duración + IA que compara lo dicho con el guion); análisis visual → spike Gemini |
+| E9 | Análisis visual (Gemini) y aviso "conviene volver a grabar" con motivo | ✅ 2026-11-18 reglas + audio con IA + **visual con Gemini** (key del cliente, opcional; costo por toma registrado) |
 | E10 | Música de fuentes autorizadas (solo sugerencia/biblioteca con licencia) | ⬜ → posterior |
 | E11 | Descargar el video final | ✅ |
 | E12 | **Armar el video final** desde las tomas de cada escena: unir en orden, quitar silencios, subtítulos, texto en pantalla, versiones 9:16 y 4:5 (`lib/jobs/assemblePiece.ts`) | ✅ 2026-11-18 |

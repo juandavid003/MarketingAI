@@ -365,3 +365,14 @@ export async function renderFinal(input: {
   args.push(...ENCODE_ARGS, input.outputPath);
   await execFileAsync(ffmpegPath(), args, { maxBuffer: 1024 * 1024 * 64 });
 }
+
+// Where an on-screen overlay sits inside a segment of `length` seconds:
+// the whole segment, or — when hook and CTA share one take — the opening
+// seconds (hook) and the closing seconds (CTA).
+export type OverlayAt = "whole" | "start" | "end";
+
+export function overlayWindow(at: OverlayAt, length: number): Interval {
+  if (at === "whole") return [0, length];
+  const span = Math.min(at === "start" ? 4 : 5, length / 3);
+  return at === "start" ? [0, span] : [Math.max(0, length - span), length];
+}

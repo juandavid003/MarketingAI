@@ -1,20 +1,26 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { CheckCircle2, AlertTriangle, ExternalLink, Clapperboard, Loader2, Film, Sparkles } from "lucide-react";
+import { ExternalLink, Clapperboard, Loader2, Film, Sparkles } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireBusinessAccess } from "@/lib/dal";
-import { fileUrl } from "@/lib/storage";
-import { purposeLabel, type GeneratedContentPiece } from "@/lib/contentAi";
+import {
+  purposeLabel,
+  recordingStatus,
+  FULL_TAKE_SCENE,
+  FULL_TAKE_SLOT,
+  type GeneratedContentPiece,
+} from "@/lib/contentAi";
+import { parsePlatformCopy, COPY_PLATFORMS } from "@/lib/platformCopy";
 import { parseReview } from "@/lib/takeReview";
 import { isTakeStalled } from "@/lib/jobs/processTake";
 import { isAssemblyStalled } from "@/lib/jobs/assemblePiece";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { assemblePiece, retryTake, deletePiece } from "../../content-actions";
+import { assemblePiece, deletePiece, generatePieceCopy } from "../../content-actions";
 import { TakeUploadForm } from "./TakeUploadForm";
+import { TakeDetails } from "./TakeDetails";
 
 type SourceRef = { permalink: string | null; competitor: string; why: string };
 
@@ -50,6 +56,9 @@ export default async function ContentPiecePage({
 
   const readyCount = content.escenas.filter((s) => takeByScene.get(s.numero)?.status === "ready").length;
   const allReady = readyCount === content.escenas.length;
+  const fullTake = piece.takes.find((t) => t.slot === FULL_TAKE_SLOT) ?? null;
+  const recorded = recordingStatus(content, piece.takes);
+  const platformCopy = parsePlatformCopy(piece.platformCopy);
   const rerecordCount = mainTakes.filter((t) => parseReview(t.review)?.verdict === "rerecord").length;
   const assemblyStalled = isAssemblyStalled(piece);
   const assembling = piece.assemblyStatus === "assembling" && !assemblyStalled;
@@ -112,9 +121,6 @@ export default async function ContentPiecePage({
         <div className="mt-4 space-y-4">
           {content.escenas.map((scene) => {
             const take = takeByScene.get(scene.numero);
-            const review = parseReview(take?.review ?? null);
-            const takeStalled = take ? isTakeStalled(take) : false;
-            const takeBusy = take && ["uploaded", "processing"].includes(take.status) && !takeStalled;
             return (
               <Card key={scene.numero} className="p-4">
                 <div className="flex items-center justify-between gap-2">
@@ -129,70 +135,33 @@ export default async function ContentPiecePage({
                 </dl>
 
                 <div className="mt-4 space-y-3 border-t border-border pt-3">
-                  {take && (
-                    <div className="flex flex-wrap items-start gap-3">
-                      <video
-                        src={fileUrl(take.originalPath)}
-                        controls
-                        preload="metadata"
-                        className="w-28 rounded-md border border-border"
-                      />
-                      <div className="min-w-0 flex-1 space-y-1.5 text-sm">
-                        {takeBusy && (
-                          <Badge tone="warning">
-                            <Loader2 className="size-3 animate-spin" /> Revisando la toma...
-                          </Badge>
-                        )}
-                        {take.status === "error" && (
-                          <p className="text-red-700 dark:text-red-400">No se pudo procesar: {take.errorMessage}</p>
-                        )}
-                        {takeStalled && <p className="text-muted">La revisión se interrumpió.</p>}
-                        {(take.status === "error" || takeStalled) && (
-                          <form action={retryTake.bind(null, id, pieceId, take.id)}>
-                            <Button type="submit" size="sm" variant="secondary">
-                              Reintentar
-                            </Button>
-                          </form>
-                        )}
-                        {take.status === "ready" && review?.verdict === "ok" && (
-                          <p className="flex items-center gap-1.5 font-medium text-green-700 dark:text-green-400">
-                            <CheckCircle2 className="size-4" /> Toma lista
-                          </p>
-                        )}
-                        {take.status === "ready" && review?.verdict === "rerecord" && (
-                          <div className="rounded-md bg-amber-50 p-3 dark:bg-amber-950/50">
-                            <p className="flex items-center gap-1.5 font-medium text-amber-800 dark:text-amber-300">
-                              <AlertTriangle className="size-4" /> Conviene volver a grabar esta escena
-                            </p>
-                            <ul className="mt-1 list-disc pl-5 text-amber-900 dark:text-amber-200">
-                              {review.reasons.map((r, i) => (
-                                <li key={i}>{r}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                        {review?.tip && <p className="text-muted">Consejo: {review.tip}</p>}
-                        {review?.notes.map((n, i) => (
-                          <p key={i} className="text-muted">
-                            {n}
-                          </p>
-                        ))}
-                        {review && (
-                          <p className="text-xs text-faint">
-                            {review.checkedBy === "rules+audio_ai"
-                              ? "Revisamos el audio y lo dicho frente al guion. La imagen aún no se analiza."
-                              : "Revisión básica de duración y voz (sin transcripción: agrega tu key de OpenAI para revisar lo dicho y poner subtítulos)."}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  )}
+                  {take && <TakeDetails businessId={id} pieceId={pieceId} take={take} label="esta escena" />}
                   <TakeUploadForm businessId={id} pieceId={pieceId} sceneNumber={scene.numero} hasTake={!!take} />
                 </div>
               </Card>
             );
           })}
         </div>
+      </section>
+
+      <section className="mt-6">
+        <Card className="p-4">
+          <p className="font-medium">¿Lo grabaste todo de una vez?</p>
+          <p className="mt-1 text-sm text-muted">
+            Sube el video completo en lugar de las escenas: quitamos los silencios, ponemos subtítulos, el hook al
+            inicio y la llamada a la acción al final, en 9:16 y 4:5. También sirve para los creativos del distribuidor.
+          </p>
+          <div className="mt-3 space-y-3">
+            {fullTake && <TakeDetails businessId={id} pieceId={pieceId} take={fullTake} label="este video" />}
+            <TakeUploadForm
+              businessId={id}
+              pieceId={pieceId}
+              sceneNumber={FULL_TAKE_SCENE}
+              slot={FULL_TAKE_SLOT}
+              hasTake={!!fullTake}
+            />
+          </div>
+        </Card>
       </section>
 
       <section className="mt-10">
@@ -219,14 +188,25 @@ export default async function ContentPiecePage({
                   volver a grabar. Puedes armar igual o reemplazar esas tomas primero.
                 </p>
               )}
-              <form action={assemblePiece.bind(null, id, pieceId)}>
-                <Button type="submit" disabled={!allReady}>
-                  <Film className="size-4" />
-                  {piece.videoAssets.length > 0 ? "Volver a armar el video" : "Armar video final"}
-                </Button>
-              </form>
-              {!allReady && (
-                <p className="text-xs text-muted">Disponible cuando todas las escenas tengan su toma lista.</p>
+              <div className="flex flex-wrap gap-2">
+                <form action={assemblePiece.bind(null, id, pieceId, "scenes")}>
+                  <Button type="submit" disabled={!allReady}>
+                    <Film className="size-4" />
+                    {piece.videoAssets.length > 0 ? "Volver a armar desde las escenas" : "Armar desde las escenas"}
+                  </Button>
+                </form>
+                {recorded.fullReady && (
+                  <form action={assemblePiece.bind(null, id, pieceId, "full")}>
+                    <Button type="submit" variant={allReady ? "secondary" : "primary"}>
+                      <Film className="size-4" /> Editar el video completo
+                    </Button>
+                  </form>
+                )}
+              </div>
+              {!allReady && !recorded.fullReady && (
+                <p className="text-xs text-muted">
+                  Disponible cuando todas las escenas tengan su toma lista, o cuando subas el video completo.
+                </p>
               )}
             </>
           )}
@@ -241,7 +221,7 @@ export default async function ContentPiecePage({
                   >
                     <span className="flex items-center gap-2 font-medium">
                       <Clapperboard className="size-4" />
-                      Video armado · {video.versions.length} versiones
+                      {video.originalFilename.split(" — ")[0]} · {video.versions.length} versiones
                     </span>
                     <span className="text-muted">{video.createdAt.toLocaleString("es")}</span>
                   </Link>
@@ -268,8 +248,35 @@ export default async function ContentPiecePage({
         </Link>
       </section>
 
-      <section className="mt-10">
-        <h2 className="text-lg font-semibold">Texto para publicar</h2>
+      <section className="mt-10" id="textos">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold">Texto para publicar</h2>
+          <form action={generatePieceCopy.bind(null, id, pieceId)}>
+            <Button type="submit" size="sm" variant="secondary">
+              <Sparkles className="size-4" /> {platformCopy.length > 0 ? "Reescribir textos por red" : "Escribir textos por red"}
+            </Button>
+          </form>
+        </div>
+        {platformCopy.length > 0 && (
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {platformCopy.map((c) => (
+              <Card key={c.plataforma} className="space-y-2 p-4 text-sm">
+                <p className="font-medium">{COPY_PLATFORMS[c.plataforma]?.label ?? c.plataforma}</p>
+                {c.titulo && (
+                  <p>
+                    <span className="text-muted">Título: </span>
+                    <span className="select-all font-medium">{c.titulo}</span>
+                  </p>
+                )}
+                <p className="select-all whitespace-pre-line rounded-md bg-black/[0.03] p-3 dark:bg-white/5">
+                  {c.caption}
+                  {c.hashtags.length > 0 && `\n\n${c.hashtags.join(" ")}`}
+                </p>
+                {c.nota && <p className="text-xs text-muted">{c.nota}</p>}
+              </Card>
+            ))}
+          </div>
+        )}
         <Card className="mt-3 space-y-4 p-4 text-sm">
           <div>
             <p className="font-medium text-muted">Descripción</p>

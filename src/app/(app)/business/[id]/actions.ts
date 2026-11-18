@@ -5,11 +5,12 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireBusinessAccess } from "@/lib/dal";
 import { encryptSecret, decryptSecret, encryptToken, decryptToken } from "@/lib/crypto";
-import { generateCampaign, generateStoryboard, generateImagePrompt, type AiProvider, type GeneratedCampaign } from "@/lib/ai";
+import { generateCampaign, generateStoryboard, generateImagePrompt, resolveModel, type AiProvider, type GeneratedCampaign } from "@/lib/ai";
 import { fetchPages, publishPagePhoto } from "@/lib/meta";
 import { generateImage } from "@/lib/images";
 import { toAiBusiness } from "@/lib/businessContext";
 import { generatePlaceholderImage } from "@/lib/placeholderImage";
+import { checkAnthropicKey, checkOpenAiKey, checkGeminiKey } from "@/lib/keyCheck";
 import { storageKey, localPath, ensureParentDir, saveBuffer, readStored } from "@/lib/storage";
 
 // Image generation (GPT Image) is OpenAI-only. If the business already uses
@@ -58,6 +59,7 @@ export async function refreshPages(businessId: string) {
 export type AiSettingsState = {
   error?: string;
   success?: boolean;
+  warning?: string;
 };
 
 const KEY_PREFIXES: Record<string, string> = {
@@ -109,6 +111,21 @@ export async function saveAiSettings(
     }
   }
 
+  // Verify every key before saving (free, read-only calls).
+  const model = typeof modelOverride === "string" && modelOverride.trim() ? modelOverride.trim() : null;
+  const checks = await Promise.all([
+    // The model that will actually be used (override or default) is checked too.
+    provider === "anthropic"
+      ? checkAnthropicKey(trimmed, resolveModel(provider, model))
+      : checkOpenAiKey(trimmed, resolveModel(provider, model)),
+    transcriptionKeyTrimmed ? checkOpenAiKey(transcriptionKeyTrimmed) : null,
+    imageKeyTrimmed ? checkOpenAiKey(imageKeyTrimmed) : null,
+  ]);
+  const labels = ["La key principal", "La key de transcripción", "La key de imágenes"];
+  const invalid = checks.findIndex((c) => c?.status === "invalid");
+  if (invalid >= 0) return { error: `${labels[invalid]}: ${checks[invalid]!.message}` };
+  const warning = checks.find((c) => c?.status === "unknown")?.message;
+
   await prisma.business.update({
     where: { id: businessId },
     data: {
@@ -125,7 +142,30 @@ export async function saveAiSettings(
 
   revalidatePath(`/business/${businessId}`);
   revalidatePath(`/business/${businessId}/settings`);
-  return { success: true };
+  return { success: true, warning };
+}
+
+// Gemini key for the visual review of takes. Saved on its own so adding it
+// does not require re-entering the main key.
+export async function saveGeminiKey(
+  businessId: string,
+  _prevState: AiSettingsState,
+  formData: FormData
+): Promise<AiSettingsState> {
+  await requireBusinessAccess(businessId);
+  const key = String(formData.get("geminiApiKey") ?? "").trim();
+  if (key.length < 20) return { error: "Pega tu API key de Google AI Studio." };
+  const check = await checkGeminiKey(key);
+  if (check.status === "invalid") return { error: check.message };
+  await prisma.business.update({ where: { id: businessId }, data: { geminiApiKeyEncrypted: encryptSecret(key) } });
+  revalidatePath(`/business/${businessId}/settings`);
+  return { success: true, warning: check.message };
+}
+
+export async function clearGeminiKey(businessId: string) {
+  await requireBusinessAccess(businessId);
+  await prisma.business.update({ where: { id: businessId }, data: { geminiApiKeyEncrypted: null } });
+  revalidatePath(`/business/${businessId}/settings`);
 }
 
 export async function clearAiSettings(businessId: string) {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { saveAiSettings, type AiSettingsState } from "../actions";
+import { saveAiSettings, saveGeminiKey, type AiSettingsState } from "../actions";
 import { Input, Label } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 
@@ -77,8 +77,37 @@ export default function AiSettingsForm({ businessId }: { businessId: string }) {
         </p>
       )}
 
+      {state.warning && (
+        <p className="rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+          {state.warning}
+        </p>
+      )}
+
       <Button type="submit" disabled={pending}>
-        {pending ? "Guardando..." : "Guardar"}
+        {pending ? "Verificando..." : "Guardar"}
+      </Button>
+    </form>
+  );
+}
+
+// Separate form: the Gemini key (visual review of takes) is optional and
+// independent from the text provider.
+export function GeminiKeyForm({ businessId }: { businessId: string }) {
+  const [state, formAction, pending] = useActionState(saveGeminiKey.bind(null, businessId), initialState);
+  return (
+    <form action={formAction} className="space-y-2">
+      <Label htmlFor="geminiApiKey">Google Gemini key para revisar la imagen de tus tomas (opcional)</Label>
+      <Input id="geminiApiKey" name="geminiApiKey" type="password" autoComplete="off" placeholder="AIza..." required />
+      <p className="text-xs text-muted">
+        Con esta key, Gemini mira cada toma (encuadre, luz, enfoque, movimiento y si se ve lo que pide el guion) y te
+        avisa si conviene regrabarla. Las tomas se envían a Google con tu propia key; el costo lo cobra Google a tu
+        cuenta y te mostramos el estimado por toma. Créala gratis en Google AI Studio.
+      </p>
+      {state.error && <p className="text-sm text-red-700 dark:text-red-400">{state.error}</p>}
+      {state.success && <p className="text-sm text-green-700 dark:text-green-400">Key verificada y guardada.</p>}
+      {state.warning && <p className="text-sm text-amber-700 dark:text-amber-300">{state.warning}</p>}
+      <Button type="submit" size="sm" variant="secondary" disabled={pending}>
+        {pending ? "Verificando..." : "Guardar key de Gemini"}
       </Button>
     </form>
   );

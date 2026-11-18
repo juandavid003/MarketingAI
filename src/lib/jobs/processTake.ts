@@ -3,9 +3,18 @@ import { prisma } from "@/lib/prisma";
 import { shortErrorMessage } from "@/lib/errors";
 import { toAiBusiness } from "@/lib/businessContext";
 import { businessAi, transcriptionKey } from "@/lib/aiCredentials";
-import { reviewTakeWithAi, type GeneratedContentPiece, type PieceScene } from "@/lib/contentAi";
+import {
+  reviewTakeWithAi,
+  wholeScriptScene,
+  FULL_TAKE_SLOT,
+  type GeneratedContentPiece,
+  type PieceScene,
+} from "@/lib/contentAi";
+import { decryptSecret } from "@/lib/crypto";
+import { languageLabel } from "@/lib/businessContext";
+import { makeReviewProxy, reviewTakeVisually } from "@/lib/visualReview";
 import { parseStrategy, estimateSpeechSeconds } from "@/lib/distribution";
-import { ruleBasedReview, type TakeReview } from "@/lib/takeReview";
+import { ruleBasedReview, mergeVisual, type TakeReview } from "@/lib/takeReview";
 import { transcribeVideo, type Transcript } from "@/lib/whisper";
 import { extractAudio } from "@/lib/video";
 import { probeMedia, detectSilences, keepIntervalsFromSilences, totalLength, type Interval } from "@/lib/videoEdit";
@@ -39,7 +48,10 @@ export async function processSceneTake(takeId: string): Promise<void> {
     const piece = take.contentPiece;
     const business = piece.business;
     const content = JSON.parse(piece.content) as GeneratedContentPiece;
-    let scene: PieceScene | undefined = content.escenas.find((s) => s.numero === take.sceneNumber);
+    let scene: PieceScene | undefined =
+      take.slot === FULL_TAKE_SLOT
+        ? wholeScriptScene(content)
+        : content.escenas.find((s) => s.numero === take.sceneNumber);
     if (!scene) throw new Error("Esta escena ya no existe en el guion.");
     if (take.slot.startsWith("hook:")) {
       // An alternative opening: judged against the hook line it replaces.
@@ -97,6 +109,24 @@ export async function processSceneTake(takeId: string): Promise<void> {
       } catch (err) {
         // The AI check is a bonus; a failure here must not fail the take.
         console.error(`[processSceneTake ${takeId}] AI review failed`, err);
+      }
+    }
+
+    // Visual check with the client's Gemini key (it sees the image).
+    if (business.geminiApiKeyEncrypted) {
+      try {
+        const proxyKey = siblingKey(take.originalPath, "review-proxy.mp4");
+        await makeReviewProxy(originalDisk, localPath(proxyKey));
+        const visual = await reviewTakeVisually({
+          apiKey: decryptSecret(business.geminiApiKeyEncrypted),
+          proxyPath: localPath(proxyKey),
+          scene,
+          language: languageLabel(business.contentLanguage),
+        });
+        review = mergeVisual(review, visual);
+      } catch (err) {
+        console.error(`[processSceneTake ${takeId}] visual review failed`, err);
+        review = { ...review, notes: [...review.notes, "No se pudo hacer la revisión visual de esta toma."] };
       }
     }
 

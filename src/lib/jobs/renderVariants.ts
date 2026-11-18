@@ -2,7 +2,7 @@ import "server-only";
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { shortErrorMessage } from "@/lib/errors";
-import type { GeneratedContentPiece } from "@/lib/contentAi";
+import { FULL_TAKE_SCENE, FULL_TAKE_SLOT, type GeneratedContentPiece } from "@/lib/contentAi";
 import { parseStrategy, variantCaption, type DistributionStrategy } from "@/lib/distribution";
 import type { Transcript } from "@/lib/whisper";
 import { extractThumbnail } from "@/lib/video";
@@ -16,8 +16,10 @@ import {
   firstBrandColor,
   probeMedia,
   totalLength,
+  overlayWindow,
   type Cue,
   type Interval,
+  type OverlayAt,
 } from "@/lib/videoEdit";
 import { storageKey, localPath, ensureParentDir, saveBuffer, deleteStored } from "@/lib/storage";
 
@@ -180,7 +182,7 @@ class RenderContext {
   // Cached by everything that affects the pixels.
   private sceneFinal(
     take: TakeRow,
-    overlays: { text: string; at: "whole" | "start" | "end" }[],
+    overlays: { text: string; at: OverlayAt }[],
     aspect: (typeof ASPECTS)[number]
   ): Promise<string> {
     const cacheKey = JSON.stringify([take.id, overlays, aspect.id]);
@@ -192,11 +194,10 @@ class RenderContext {
         const cues: Cue[] = buildAssemblyCues([
           { offsetSeconds: 0, lengthSeconds: norm.length, keep: norm.keep, segments: norm.segments, onScreenText: "" },
         ]);
-        // With hook and CTA on a single-scene video, split the time.
-        const half = norm.length / 2;
+        // Hook and CTA sharing one take go at its start and end.
         for (const o of overlays) {
           if (!o.text.trim()) continue;
-          const [start, end] = o.at === "whole" ? [0, norm.length] : o.at === "start" ? [0, half] : [half, norm.length];
+          const [start, end] = overlayWindow(o.at, norm.length);
           cues.push({ start, end, text: o.text.trim(), top: true });
         }
         cues.sort((a, b) => a.start - b.start);
@@ -215,37 +216,59 @@ class RenderContext {
     return job;
   }
 
+  // The takes to join and their overlays: scene takes when every scene has
+  // one (scene 1 may be replaced by the hook's recorded opening), else the
+  // whole-script take with the hook at its start and the CTA at its end.
+  private segmentsFor(
+    hook: { codigo: string; texto: string; original: boolean },
+    cta: { texto: string }
+  ): { take: TakeRow; overlays: { text: string; at: OverlayAt }[] }[] {
+    const scenes = this.content.escenas;
+    const missing = scenes.filter((s) => !this.take(s.numero, "main"));
+    if (missing.length === 0) {
+      const last = scenes.length - 1;
+      const opening = (!hook.original && this.take(1, `hook:${hook.codigo}`)) || this.take(1, "main")!;
+      return scenes.map((scene, i) => ({
+        take: i === 0 ? opening : this.take(scene.numero, "main")!,
+        overlays:
+          scenes.length === 1
+            ? [
+                { text: hook.texto, at: "start" as const },
+                { text: cta.texto, at: "end" as const },
+              ]
+            : i === 0
+              ? [{ text: hook.texto, at: "whole" as const }]
+              : i === last
+                ? [{ text: cta.texto, at: "whole" as const }]
+                : [{ text: scene.textoPantalla, at: "whole" as const }],
+      }));
+    }
+    const full = this.take(FULL_TAKE_SCENE, FULL_TAKE_SLOT);
+    if (full) {
+      return [
+        {
+          take: full,
+          overlays: [
+            { text: hook.texto, at: "start" },
+            { text: cta.texto, at: "end" },
+          ],
+        },
+      ];
+    }
+    throw new Error(`Faltan tomas listas para: ${missing.map((s) => `escena ${s.numero}`).join(", ")}.`);
+  }
+
   async render(code: string, hookCode: string, ctaCode: string): Promise<void> {
     const hook = this.strategy.hooks.find((h) => h.codigo === hookCode);
     const cta = this.strategy.ctas.find((c) => c.codigo === ctaCode);
     if (!hook || !cta) throw new Error("Ese hook o CTA ya no existe en el plan.");
 
-    const scenes = this.content.escenas;
-    const missing = scenes.filter((s) => !this.take(s.numero, "main"));
-    if (missing.length > 0) {
-      throw new Error(`Faltan tomas listas para: ${missing.map((s) => `escena ${s.numero}`).join(", ")}.`);
-    }
-    const last = scenes.length - 1;
-    // The alternative opening, when recorded; otherwise the script take with
-    // only the on-screen hook changed.
-    const opening = (!hook.original && this.take(1, `hook:${hook.codigo}`)) || this.take(1, "main")!;
+    const plan = this.segmentsFor(hook, cta);
 
     const outputs: { aspect: (typeof ASPECTS)[number]; key: string; thumb: string }[] = [];
     for (const aspect of ASPECTS) {
       const parts: string[] = [];
-      for (const [i, scene] of scenes.entries()) {
-        const take = i === 0 ? opening : this.take(scene.numero, "main")!;
-        const overlays: { text: string; at: "whole" | "start" | "end" }[] =
-          scenes.length === 1
-            ? [
-                { text: hook.texto, at: "start" },
-                { text: cta.texto, at: "end" },
-              ]
-            : i === 0
-              ? [{ text: hook.texto, at: "whole" }]
-              : i === last
-                ? [{ text: cta.texto, at: "whole" }]
-                : [{ text: scene.textoPantalla, at: "whole" }];
+      for (const { take, overlays } of plan) {
         parts.push(await this.sceneFinal(take, overlays, aspect));
       }
       const key = storageKey(this.piece.businessId, "pieces", this.piece.id, "variants", this.runId, `${code}-${aspect.id}.mp4`);
