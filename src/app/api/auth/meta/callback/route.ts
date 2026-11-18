@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { publicBaseUrl } from "@/lib/links";
 import { prisma } from "@/lib/prisma";
 import { encryptToken } from "@/lib/crypto";
 import {
@@ -12,7 +13,9 @@ const STATE_COOKIE = "meta_oauth_state";
 
 function redirectWithError(request: NextRequest, businessId: string | null, message: string) {
   const target = businessId ? `/business/${businessId}/connections` : "/start";
-  const url = new URL(target, request.url);
+  // Not request.url: behind the reverse proxy it is the container address
+  // (https://localhost:3000), so redirects must use the public URL.
+  const url = new URL(target, publicBaseUrl());
   url.searchParams.set("meta_error", message);
   const response = NextResponse.redirect(url);
   response.cookies.delete(STATE_COOKIE);
@@ -89,7 +92,7 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    const url = new URL(`/business/${businessId}/connections`, request.url);
+    const url = new URL(`/business/${businessId}/connections`, publicBaseUrl());
     url.searchParams.set("connected", "1");
     const response = NextResponse.redirect(url);
     response.cookies.delete(STATE_COOKIE);

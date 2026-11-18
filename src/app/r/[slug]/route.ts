@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { destinationWithUtm, deviceType, isBot, referrerHost } from "@/lib/links";
+import { destinationWithUtm, deviceType, isBot, publicBaseUrl, referrerHost } from "@/lib/links";
 
 // Public tracked-link redirect: count the click (people only, no personal
 // data), then send the visitor to the destination with UTM parameters.
@@ -10,7 +10,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     ? await prisma.trackedLink.findUnique({ where: { slug } })
     : null;
   if (!link || link.archived) {
-    return NextResponse.redirect(new URL("/", request.url), 302);
+    return NextResponse.redirect(new URL("/", publicBaseUrl()), 302);
   }
 
   const ua = request.headers.get("user-agent");
