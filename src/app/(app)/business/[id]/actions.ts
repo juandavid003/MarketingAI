@@ -28,7 +28,7 @@ function resolveOpenAiImageKeyEncrypted(business: {
 export async function disconnectMeta(businessId: string) {
   await requireBusinessAccess(businessId);
   await prisma.socialConnection.deleteMany({ where: { businessId } });
-  revalidatePath(`/business/${businessId}`);
+  revalidatePath(`/business/${businessId}`, "layout");
 }
 
 export async function refreshPages(businessId: string) {
@@ -52,7 +52,7 @@ export async function refreshPages(businessId: string) {
     }),
   ]);
 
-  revalidatePath(`/business/${businessId}`);
+  revalidatePath(`/business/${businessId}`, "layout");
 }
 
 export type AiSettingsState = {
@@ -206,7 +206,7 @@ export async function createCampaign(
     campaignId = campaign.id;
   } catch (err) {
     const message = err instanceof Error ? err.message : "Error al generar la campaña.";
-    redirect(`/business/${businessId}?campaign_error=${encodeURIComponent(message)}`);
+    redirect(`/business/${businessId}/ideas?campaign_error=${encodeURIComponent(message)}`);
   }
 
   redirect(`/business/${businessId}/campaigns/${campaignId}`);
@@ -269,7 +269,7 @@ export async function createCampaignFromObjective(businessId: string, formData: 
     campaignId = campaign.id;
   } catch (err) {
     const message = err instanceof Error ? err.message : "Error al generar la campaña.";
-    redirect(`/business/${businessId}?campaign_error=${encodeURIComponent(message)}`);
+    redirect(`/business/${businessId}/ideas?campaign_error=${encodeURIComponent(message)}`);
   }
 
   redirect(`/business/${businessId}/campaigns/${campaignId}`);

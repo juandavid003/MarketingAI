@@ -27,8 +27,8 @@ export default async function UploadVideoPage({
   return (
     <main className="mx-auto max-w-2xl px-6 py-12">
       <PageHeader
-        backHref={`/business/${business.id}`}
-        backLabel="Volver al negocio"
+        backHref={`/business/${business.id}/videos`}
+        backLabel="Volver a Videos"
         title="Editar video con IA"
         description="Sube un video grabado con el celular. La IA transcribe el audio, elige el mejor fragmento, sugiere un hook y un CTA, y genera un clip vertical (9:16) con subtítulos quemados y thumbnail."
       />

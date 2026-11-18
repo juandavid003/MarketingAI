@@ -7,7 +7,7 @@ import { Radar, Wand2, Rocket, LineChart } from "lucide-react";
 
 export default async function Home() {
   const session = await auth.api.getSession({ headers: await headers() });
-  const ctaHref = session ? "/onboarding" : "/signup";
+  const ctaHref = session ? "/start" : "/signup";
 
   return (
     <main className="flex-1">

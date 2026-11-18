@@ -69,8 +69,8 @@ export default async function CompetitorsPage({
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
       <PageHeader
-        backHref={`/business/${id}`}
-        backLabel="Volver al negocio"
+        backHref={`/business/${id}/ideas`}
+        backLabel="Volver a Generador de ideas"
         title="Competencia"
         description="Qué publica tu competencia y qué le funciona, con datos públicos reales. A partir de eso, ideas de video adaptadas a tu negocio."
       />

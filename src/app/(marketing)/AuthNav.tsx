@@ -23,7 +23,7 @@ export default function AuthNav({ userEmail }: { userEmail: string | null }) {
 
   return (
     <div className="flex items-center gap-3 text-sm">
-      <Link href="/onboarding" className="hidden text-muted hover:text-foreground sm:inline">
+      <Link href="/start" className="hidden text-muted hover:text-foreground sm:inline">
         Mi cuenta
       </Link>
       <Button

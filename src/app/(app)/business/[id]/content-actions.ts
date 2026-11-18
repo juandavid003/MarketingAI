@@ -83,7 +83,7 @@ async function createPiece(
   } catch (err) {
     redirect(withError(errorUrl, err instanceof Error ? err.message : "Error al generar el guion."));
   }
-  revalidatePath(`/business/${businessId}`);
+  revalidatePath(`/business/${businessId}`, "layout");
   redirect(piecePath(businessId, pieceId));
 }
 
@@ -93,11 +93,11 @@ export async function createPieceFromBrief(businessId: string, formData: FormDat
   const brief = String(formData.get("brief") ?? "").trim();
   const purpose = String(formData.get("purpose") ?? "").trim();
   if (brief.length < 5) {
-    redirect(withError(`/business/${businessId}`, "Cuéntanos con un poco más de detalle de qué quieres el video."));
+    redirect(withError(`/business/${businessId}/copywriter`, "Cuéntanos con un poco más de detalle de qué quieres el video."));
   }
   await createPiece(
     businessId,
-    `/business/${businessId}`,
+    `/business/${businessId}/copywriter`,
     { brief, purpose: purpose ? purposeLabel(purpose) : undefined },
     { sourceType: "brief", sourceSummary: brief }
   );
@@ -187,8 +187,8 @@ export async function deletePiece(businessId: string, pieceId: string) {
     // Takes only; assembled videos stay (they are VideoAssets of their own).
     await deleteStored(storageKey(businessId, "pieces", pieceId, "takes")).catch(() => {});
   }
-  revalidatePath(`/business/${businessId}`);
-  redirect(`/business/${businessId}`);
+  revalidatePath(`/business/${businessId}`, "layout");
+  redirect(`/business/${businessId}/copywriter`);
 }
 
 // ---------------------------------------------------------------------------

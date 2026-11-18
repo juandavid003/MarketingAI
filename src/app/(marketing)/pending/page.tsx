@@ -5,7 +5,7 @@ import { Clock } from "lucide-react";
 export default async function PendingPage() {
   const user = await requireUser();
   if (user.role === "admin" || user.enabled) {
-    redirect("/onboarding");
+    redirect("/start");
   }
 
   return (

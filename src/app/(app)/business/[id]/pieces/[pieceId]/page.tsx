@@ -59,8 +59,8 @@ export default async function ContentPiecePage({
     <main className="mx-auto max-w-3xl px-6 py-12">
       {(assembling || takesProcessing) && <AutoRefresh />}
       <PageHeader
-        backHref={`/business/${id}`}
-        backLabel="Volver al negocio"
+        backHref={`/business/${id}/copywriter`}
+        backLabel="Volver al Copywriter"
         eyebrow={`${purposeLabel(content.proposito)} · ${content.formato} · ~${Math.round(content.duracionTotalSegundos)} s`}
         title={`“${content.hook}”`}
         description={piece.sourceSummary}

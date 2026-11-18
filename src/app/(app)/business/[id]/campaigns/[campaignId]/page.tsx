@@ -108,8 +108,8 @@ export default async function CampaignPage({
   return (
     <main className="mx-auto max-w-2xl px-6 py-12">
       <PageHeader
-        backHref={`/business/${id}`}
-        backLabel="Volver al negocio"
+        backHref={`/business/${id}/ideas`}
+        backLabel="Volver a Generador de ideas"
         eyebrow={`Campaña generada · ${campaign.provider} (${campaign.model})`}
         title={campaign.title}
         description={`Basada en: ${campaign.sourceInsight}`}

@@ -9,7 +9,7 @@ export default async function LoginPage() {
   // comment there on why this redirect can't live in proxy.ts without
   // risking a loop with a stale cookie.
   const session = await auth.api.getSession({ headers: await headers() });
-  if (session) redirect("/onboarding");
+  if (session) redirect("/start");
 
   return (
     <div>

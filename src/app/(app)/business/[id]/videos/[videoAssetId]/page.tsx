@@ -77,8 +77,8 @@ export default async function VideoAssetPage({
   return (
     <main className="mx-auto max-w-2xl px-6 py-12">
       <PageHeader
-        backHref={`/business/${id}`}
-        backLabel="Volver al negocio"
+        backHref={`/business/${id}/videos`}
+        backLabel="Volver a Videos"
         title={video.originalFilename}
         actions={
           <div className="flex items-center gap-2">

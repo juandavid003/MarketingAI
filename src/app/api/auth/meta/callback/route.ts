@@ -11,7 +11,7 @@ import {
 const STATE_COOKIE = "meta_oauth_state";
 
 function redirectWithError(request: NextRequest, businessId: string | null, message: string) {
-  const target = businessId ? `/business/${businessId}` : "/";
+  const target = businessId ? `/business/${businessId}/connections` : "/start";
   const url = new URL(target, request.url);
   url.searchParams.set("meta_error", message);
   const response = NextResponse.redirect(url);
@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    const url = new URL(`/business/${businessId}`, request.url);
+    const url = new URL(`/business/${businessId}/connections`, request.url);
     url.searchParams.set("connected", "1");
     const response = NextResponse.redirect(url);
     response.cookies.delete(STATE_COOKIE);

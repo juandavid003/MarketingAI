@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { CheckCircle2, AlertTriangle, Loader2, Sparkles, Film, Trophy, ExternalLink } from "lucide-react";
+import { CheckCircle2, AlertTriangle, Loader2, Sparkles, Film, Trophy, ExternalLink, CalendarDays } from "lucide-react";
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireBusinessAccess } from "@/lib/dal";
@@ -31,6 +31,7 @@ import {
   addVariantResult,
   removeVariantResult,
 } from "../../../distribution-actions";
+import { addStrategyToCalendar } from "../../../calendar-actions";
 import { TakeUploadForm } from "../TakeUploadForm";
 
 export default async function CreativesPage({
@@ -346,6 +347,19 @@ function StrategyView({
         <p className="mt-1 text-sm text-muted">
           Los horarios son un punto de partida: ajústalos con lo que muestren tus propias estadísticas.
         </p>
+        <form
+          action={addStrategyToCalendar.bind(null, businessId, pieceId)}
+          className="mt-3 flex flex-wrap items-end gap-2 rounded-md border border-border p-3 text-sm"
+        >
+          <label className="space-y-1">
+            <span className="block font-medium">Enviar al Manager de contenido desde el</span>
+            <Input name="start" type="date" required defaultValue={new Date().toISOString().slice(0, 10)} className="w-auto" />
+          </label>
+          <Button type="submit" size="sm" variant="secondary">
+            <CalendarDays className="size-4" /> Agregar al calendario
+          </Button>
+          <span className="text-xs text-faint">El día 1 del plan cae en esa fecha. Volver a enviarlo reemplaza lo anterior.</span>
+        </form>
         <div className="mt-3 space-y-3">
           {strategy.calendario.map((post, i) => {
             const code = post.hook === "ganador" ? (winnerHook ? variantCode(winnerHook, post.cta) : null) : variantCode(post.hook, post.cta);

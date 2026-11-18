@@ -68,6 +68,10 @@ model Business {
   competitors      Competitor[]
   contentPieces    ContentPiece[]
   competitorIdeas  CompetitorIdeaBatch[]
+  planItems        ContentPlanItem[]
+  trackedLinks     TrackedLink[]
+  promoCodes       PromoCode[]
+  leads            Lead[]
 }
 
 // name is a free-text search term, matched against the public Meta Ad
@@ -157,9 +161,13 @@ model ContentPiece {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @default(now()) @updatedAt
 
-  takes       SceneTake[]
-  videoAssets VideoAsset[]
-  variants    CreativeVariant[]
+  takes        SceneTake[]
+  videoAssets  VideoAsset[]
+  variants     CreativeVariant[]
+  planItems    ContentPlanItem[]
+  trackedLinks TrackedLink[]
+  promoCodes   PromoCode[]
+  leads        Lead[]
 }
 
 // One creative = the same recorded body with a given hook (opening) and CTA
@@ -241,6 +249,10 @@ model Campaign {
   storyboards    Storyboard[]
   contentPieces  ContentPiece[]
   images         CampaignImage[]
+  planItems      ContentPlanItem[]
+  trackedLinks   TrackedLink[]
+  promoCodes     PromoCode[]
+  leads          Lead[]
   publishedPosts PublishedPost[]
   adCampaigns    AdCampaign[]
 }
@@ -491,4 +503,125 @@ model Verification {
 
   @@index([identifier])
   @@map("verification")
+}
+
+// ---------------------------------------------------------------------------
+// Manager de contenido: one publication on the calendar, any format.
+// ---------------------------------------------------------------------------
+model ContentPlanItem {
+  id             String        @id @default(cuid())
+  business       Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId     String
+  date           DateTime // the day (stored at 12:00 UTC)
+  time           String? // "18:30", optional
+  platform       String // instagram | facebook | tiktok | youtube | other
+  format         String // reel | carousel | story | post | video | live (lib/contentPlan.ts)
+  title          String
+  brief          String? // what the publication is about / how to make it
+  copy           String? // caption
+  details        String? // JSON string[]: carousel slides, story frames...
+  pillar         String?
+  purpose        String?
+  status         String        @default("planned") // idea | planned | producing | ready | published
+  source         String        @default("manual") // manual | ai | distribution
+  campaign       Campaign?     @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  campaignId     String?
+  contentPiece   ContentPiece? @relation(fields: [contentPieceId], references: [id], onDelete: SetNull)
+  contentPieceId String?
+  variantCode    String?
+  trackedLink    TrackedLink?  @relation(fields: [trackedLinkId], references: [id], onDelete: SetNull)
+  trackedLinkId  String?
+  publishedUrl   String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @default(now()) @updatedAt
+
+  @@index([businessId, date])
+}
+
+// ---------------------------------------------------------------------------
+// Sprint 2 — business results: tracked links, promo codes, leads.
+// ---------------------------------------------------------------------------
+
+// /r/<slug> redirects to destinationUrl (UTM added) and counts the click.
+model TrackedLink {
+  id             String        @id @default(cuid())
+  business       Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId     String
+  slug           String        @unique
+  label          String
+  destinationUrl String
+  utmSource      String?
+  utmMedium      String?
+  utmCampaign    String?
+  utmContent     String?
+  campaign       Campaign?     @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  campaignId     String?
+  contentPiece   ContentPiece? @relation(fields: [contentPieceId], references: [id], onDelete: SetNull)
+  contentPieceId String?
+  archived       Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+
+  clicks    LinkClick[]
+  leads     Lead[]
+  planItems ContentPlanItem[]
+}
+
+// No personal data: no IP, no user agent, no cookie — only when, the kind of
+// device and the referring site.
+model LinkClick {
+  id           String      @id @default(cuid())
+  link         TrackedLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  linkId       String
+  device       String? // mobile | tablet | desktop
+  referrerHost String?
+  createdAt    DateTime    @default(now())
+
+  @@index([linkId, createdAt])
+}
+
+model PromoCode {
+  id             String        @id @default(cuid())
+  business       Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId     String
+  code           String // stored uppercase
+  description    String?
+  campaign       Campaign?     @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  campaignId     String?
+  contentPiece   ContentPiece? @relation(fields: [contentPieceId], references: [id], onDelete: SetNull)
+  contentPieceId String?
+  active         Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+
+  leads Lead[]
+
+  @@unique([businessId, code])
+}
+
+// A potential customer the owner registers. attribution says how sure we are
+// of where they came from: high = tracked link or promo code, medium = the
+// customer named the campaign/content, low = only a channel.
+model Lead {
+  id             String        @id @default(cuid())
+  business       Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId     String
+  name           String?
+  contact        String?
+  source         String // lib/leads.ts LEAD_SOURCES
+  trackedLink    TrackedLink?  @relation(fields: [trackedLinkId], references: [id], onDelete: SetNull)
+  trackedLinkId  String?
+  promoCode      PromoCode?    @relation(fields: [promoCodeId], references: [id], onDelete: SetNull)
+  promoCodeId    String?
+  campaign       Campaign?     @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  campaignId     String?
+  contentPiece   ContentPiece? @relation(fields: [contentPieceId], references: [id], onDelete: SetNull)
+  contentPieceId String?
+  status         String        @default("new") // new | contacted | qualified | won | lost
+  value          Float?
+  attribution    String // high | medium | low
+  notes          String?
+  occurredAt     DateTime      @default(now())
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @default(now()) @updatedAt
+
+  @@index([businessId, occurredAt])
 }

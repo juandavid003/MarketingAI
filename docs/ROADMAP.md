@@ -30,7 +30,13 @@ Pedido del fundador: guion genérico, ideas basadas en lo que funciona a la comp
 - **Distribuidor** (`/business/[id]/pieces/[pieceId]/creatives`): 3 hooks + 2 CTAs alternativos, creativos hook × CTA del mismo video, calendario por red con copy propio, registro de resultados y ganador por fase.
 - **Pendiente para activar Business Discovery:** habilitar `instagram_manage_insights` en la app de Meta y poner `META_REQUEST_IG_INSIGHTS=true`; luego cada cliente reconecta Meta.
 
-## Sprint 2 — Leads y resultados (diferenciador)
+## Adelantado 2026-11-18 (2) — App por módulos + Sprint 2
+Pedido del fundador: separar la app en módulos al lado del selector de negocio, todo dentro del negocio seleccionado (un cliente puede tener varios negocios).
+- Barra lateral por módulos: Resumen · Crear (Generador de ideas, Copywriter, Distribuidor de estrategia, Manager de contenido, Videos) · Medir (Enlaces y códigos, Leads, Resultados) · Negocio (Perfil, Conexiones, IA). Definidos en `src/components/business/modules.ts`; al cambiar de negocio se mantiene el módulo. `/start` abre el último negocio usado.
+- **Manager de contenido** (`/calendar`): calendario mensual multiformato (reel, carrusel, historia, post, video largo, en vivo) con estados, planificador con IA que usa campañas y guiones, y envío del plan del Distribuidor al calendario.
+- **Sprint 2 hecho:** `TrackedLink` + `/r/[slug]` (UTM, clics sin datos personales, sin contar vistas previas de bots), QR PNG/SVG, enlaces a WhatsApp con referencia, códigos promocionales, registro de leads con confianza de atribución (alta/media/baja) y panel **Resultados** que separa negocio de métricas de plataforma.
+
+## Sprint 2 — Leads y resultados (diferenciador) ✅ (ver arriba)
 | Tarea | Complejidad |
 |---|---|
 | `TrackedLink` + `/r/[slug]` (redirección con UTM, conteo de clics sin datos personales) | M |

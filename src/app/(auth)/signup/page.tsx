@@ -6,7 +6,7 @@ import SignupForm from "./SignupForm";
 
 export default async function SignupPage() {
   const session = await auth.api.getSession({ headers: await headers() });
-  if (session) redirect("/onboarding");
+  if (session) redirect("/start");
 
   return (
     <div>

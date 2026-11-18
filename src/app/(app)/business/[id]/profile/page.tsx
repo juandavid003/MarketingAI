@@ -24,8 +24,6 @@ export default async function BusinessProfileEditPage({
   return (
     <main className="mx-auto max-w-2xl px-6 py-12">
       <PageHeader
-        backHref={`/business/${id}`}
-        backLabel="Volver al negocio"
         title="Perfil del negocio"
         description="La IA usa toda esta información para personalizar estrategias, guiones y textos. Mientras más completo, mejores resultados."
       />

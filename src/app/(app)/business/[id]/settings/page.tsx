@@ -41,8 +41,6 @@ export default async function AiSettingsPage({
   return (
     <main className="mx-auto max-w-2xl px-6 py-12">
       <PageHeader
-        backHref={`/business/${business.id}`}
-        backLabel="Volver al negocio"
         title="Configuración de IA"
         description={`Elige el proveedor de IA que se usará para generar campañas y contenido para ${business.name}. Usamos tu propia API key — no compartimos ni reutilizamos tu cuota entre negocios.`}
       />

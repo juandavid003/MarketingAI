@@ -34,7 +34,7 @@ export default function SignupForm() {
       return;
     }
 
-    router.push("/onboarding");
+    router.push("/start");
     router.refresh();
   }
 

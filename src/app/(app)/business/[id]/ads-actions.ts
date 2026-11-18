@@ -28,7 +28,7 @@ async function requireAdsAccess(businessId: string) {
 }
 
 function redirectToBusiness(businessId: string, error: string): never {
-  redirect(`/business/${businessId}?ad_error=${encodeURIComponent(error)}`);
+  redirect(`/business/${businessId}/connections?ad_error=${encodeURIComponent(error)}`);
 }
 
 export async function connectAdAccount(businessId: string, formData: FormData) {
@@ -70,7 +70,7 @@ export async function connectAdAccount(businessId: string, formData: FormData) {
     redirectToBusiness(businessId, message);
   }
 
-  redirect(`/business/${businessId}`);
+  redirect(`/business/${businessId}/connections`);
 }
 
 function redirectToCampaign(businessId: string, campaignId: string, error: string): never {

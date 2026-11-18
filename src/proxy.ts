@@ -23,6 +23,7 @@ export function proxy(request: NextRequest) {
 
   const isProtected =
     pathname.startsWith("/onboarding") ||
+    pathname.startsWith("/start") ||
     pathname.startsWith("/business") ||
     pathname.startsWith("/admin") ||
     pathname.startsWith("/pending");
