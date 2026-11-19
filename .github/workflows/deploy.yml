@@ -40,6 +40,9 @@ jobs:
       - run: npx prisma generate
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      # Route/layout prop types (LayoutProps, PageProps) live in .next/types,
+      # which a fresh checkout doesn't have.
+      - run: npx next typegen
       - run: npx tsc --noEmit -p .
       - run: npx eslint
       - run: npm test
