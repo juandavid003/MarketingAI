@@ -31,7 +31,6 @@ El MVP está "terminado" cuando **un cliente real que paga** puede completar el 
 | Funcionalidad | Por qué no ahora | Cuándo reconsiderar |
 |---|---|---|
 | **Pauta pagada en Meta Ads** | ❄️ Congelada. Requiere revisión del negocio (responsabilidad sobre gasto del cliente, App Review de `ads_management`). El código existe pero está apagado con `FEATURE_ADS`. | Tras validar el ciclo orgánico y definir el modelo comercial de pauta. |
-| Asistente conversacional (módulo I) | Requiere primero datos de rendimiento y leads acumulados para ser útil. | Cuando haya ≥ 2 meses de datos en clientes piloto. |
 | Generación de video 100% con IA (Veo, Kling…) | Caro por segundo y no resuelve el problema principal ("no sé editar lo que grabo"). | Como escenas de relleno (B-roll), post-MVP. |
 | Publicación directa en TikTok | La Content Posting API exige auditoría de la app; sin ella las publicaciones quedan privadas. | Tras auditoría. Mientras: paquete de exportación. |
 | Publicación directa en YouTube Shorts | Cuota diaria limitada de la YouTube Data API y verificación OAuth. | Cuando haya demanda real. Mientras: exportación. |

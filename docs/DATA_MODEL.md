@@ -135,5 +135,6 @@ model Lead {
 | `BusinessMember(role)` ✅ | Encargado de redes por negocio (en vez de `Organization`): invitación por enlace secreto (`tokenHash`), el dueño sigue siendo `Business.userId`. Reglas en `lib/access.ts`. |
 | `AuditEvent` ✅ | Quién hizo qué: keys, conexión Meta, publicaciones (también las del programador), activación de cuentas, equipo. Sin FKs para que sobreviva a borrados; nunca guarda secretos. |
 | `Feedback` ✅ | Comentarios de los usuarios desde la app; se leen en /admin. |
+| `AssistantMessage` ✅ | Conversación con el asistente de crecimiento, por persona y negocio. Cada respuesta guarda los datos numerados (`facts`) que vio, para que sus citas no cambien. |
 | ~~`UsageCounter`~~ | No hizo falta: minutos del mes y espacio se calculan al subir (`lib/usageServer.ts`). `VideoAsset.originalDeletedAt` marca originales borrados por la limpieza. |
 | `IndustryConfig` | Sugerencias por industria como datos (pilares, CTAs, ejemplos). |

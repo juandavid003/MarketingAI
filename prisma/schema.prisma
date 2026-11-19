@@ -72,19 +72,20 @@ model Business {
   // rows, clearly labeled; never connected to any social network.
   isDemo Boolean @default(false)
 
-  products         Product[]
-  socialConnection SocialConnection?
-  campaigns        Campaign[]
-  videoAssets      VideoAsset[]
-  competitors      Competitor[]
-  contentPieces    ContentPiece[]
-  competitorIdeas  CompetitorIdeaBatch[]
-  planItems        ContentPlanItem[]
-  trackedLinks     TrackedLink[]
-  promoCodes       PromoCode[]
-  leads            Lead[]
-  publishJobs      PublishJob[]
-  members          BusinessMember[]
+  products          Product[]
+  socialConnection  SocialConnection?
+  campaigns         Campaign[]
+  videoAssets       VideoAsset[]
+  competitors       Competitor[]
+  contentPieces     ContentPiece[]
+  competitorIdeas   CompetitorIdeaBatch[]
+  planItems         ContentPlanItem[]
+  trackedLinks      TrackedLink[]
+  promoCodes        PromoCode[]
+  leads             Lead[]
+  publishJobs       PublishJob[]
+  members           BusinessMember[]
+  assistantMessages AssistantMessage[]
 }
 
 // name is a free-text search term, matched against the public Meta Ad
@@ -348,10 +349,10 @@ model VideoAsset {
   updatedAt        DateTime @default(now()) @updatedAt
 
   // Set when this video was assembled from a ContentPiece's scene takes.
-  contentPiece   ContentPiece? @relation(fields: [contentPieceId], references: [id], onDelete: SetNull)
-  contentPieceId String?
+  contentPiece      ContentPiece? @relation(fields: [contentPieceId], references: [id], onDelete: SetNull)
+  contentPieceId    String?
   // Set for renders of a CreativeVariant ("H2C1"); null for the base video.
-  variantCode    String?
+  variantCode       String?
   // The uploaded original is deleted some days after the edit is ready
   // (lib/jobs/storageCleanup.ts); the rendered versions stay.
   originalDeletedAt DateTime?
@@ -460,10 +461,11 @@ model User {
   // start disabled until confirmed.
   enabled Boolean @default(false)
 
-  sessions    Session[]
-  accounts    Account[]
-  businesses  Business[]
-  memberships BusinessMember[]
+  sessions          Session[]
+  accounts          Account[]
+  businesses        Business[]
+  memberships       BusinessMember[]
+  assistantMessages AssistantMessage[]
 
   @@unique([email])
   @@map("user")
@@ -738,4 +740,26 @@ model Feedback {
   createdAt  DateTime @default(now())
 
   @@index([createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Growth assistant (PRD module I, lib/assistant.ts). One conversation per
+// person per business. An answer keeps the facts it was given (JSON Fact[])
+// so its citations still point to the figures it saw, even after the data
+// changes.
+// ---------------------------------------------------------------------------
+model AssistantMessage {
+  id         String   @id @default(cuid())
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  role       String // user | assistant
+  content    String
+  facts      String? // assistant only: JSON Fact[] snapshot
+  provider   String?
+  model      String?
+  createdAt  DateTime @default(now())
+
+  @@index([businessId, userId, createdAt])
 }

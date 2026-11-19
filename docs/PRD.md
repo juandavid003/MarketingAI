@@ -113,7 +113,7 @@ Que un negocio pequeño, de cualquier industria, publique contenido útil cada s
 ### I. Asistente de crecimiento
 | ID | Requisito | Estado |
 |---|---|---|
-| I1 | Chat que responde con datos reales del negocio y cita de dónde sale cada cifra | ⬜ → después del MVP |
+| I1 | Chat que responde con datos reales del negocio y cita de dónde sale cada cifra | ✅ |
 
 ### Plataforma
 | ID | Requisito | Estado |

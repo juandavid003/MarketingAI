@@ -101,8 +101,13 @@ Pedido del fundador: separar la app en módulos al lado del selector de negocio,
 | Organizaciones y roles (encargado de redes) | M |
 | Negocio de demostración + recolección de feedback in-app | S |
 
+## Asistente de crecimiento (módulo I) ✅ 2026-11-19
+- Chat en *Medir → Asistente de crecimiento*, para dueño y encargado, con la IA del negocio (su key).
+- **La app calcula las cifras, no la IA:** `lib/assistantData.ts` arma datos numerados ([F1], [F2]…) con las mismas definiciones que *Resultados* — clics, leads, clientes y ventas de 30 días contra los 30 anteriores, confianza del origen, leads abiertos, campañas/contenidos/canales/enlaces que traen clientes, ejecución del plan, publicaciones, métricas de creativos (separadas: no son clientes), competencia, fechas que vienen y huecos del perfil. Cada dato enlaza a la página donde se comprueba.
+- La IA solo puede usar esos datos y debe citarlos; `parseAnswer` convierte las citas en enlaces, lista las fuentes debajo de cada respuesta y **marca** citas inexistentes o cifras que no están en los datos.
+- La respuesta guarda los datos que vio, así sus citas siguen siendo válidas aunque los números cambien. Conversación por persona y negocio, límite de 40 preguntas cada 24 h. La IA no recibe datos de contacto de los leads.
+
 ## Después del MVP
-- Asistente de crecimiento (módulo I) sobre datos reales.
 - TikTok / YouTube directos (tras auditoría/cuotas).
 - Reactivar pauta (tras revisión de negocio).
 - Pasarela de pago y planes.

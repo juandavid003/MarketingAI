@@ -13,6 +13,7 @@ import {
   Bot,
   Send,
   UsersRound,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 
@@ -111,6 +112,13 @@ export const MODULE_GROUPS: { label: string; modules: ModuleDef[] }[] = [
         path: "results",
         icon: BarChart3,
         description: "Resultados de negocio separados de las métricas de las redes.",
+      },
+      {
+        key: "assistant",
+        label: "Asistente de crecimiento",
+        path: "assistant",
+        icon: Sparkles,
+        description: "Pregunta qué funciona y qué hacer; responde con tus datos y cita cada cifra.",
       },
     ],
   },
