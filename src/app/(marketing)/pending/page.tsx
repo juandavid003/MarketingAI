@@ -1,10 +1,13 @@
 import { redirect } from "next/navigation";
-import { requireUser } from "@/lib/dal";
+import { requireUser, listAccessibleBusinesses } from "@/lib/dal";
+import { accountActive } from "@/lib/access";
 import { Clock } from "lucide-react";
 
 export default async function PendingPage() {
   const user = await requireUser();
-  if (user.role === "admin" || user.enabled) {
+  // Active accounts, and managers invited to an active owner's business,
+  // have somewhere to go.
+  if (accountActive(user) || (await listAccessibleBusinesses(user)).length > 0) {
     redirect("/start");
   }
 

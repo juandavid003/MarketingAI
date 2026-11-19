@@ -6,7 +6,7 @@ import { authClient } from "@/lib/auth-client";
 import { Input, Label } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 
-export default function SignupForm() {
+export default function SignupForm({ next }: { next?: string }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +34,7 @@ export default function SignupForm() {
       return;
     }
 
-    router.push("/start");
+    router.push(next ?? "/start");
     router.refresh();
   }
 

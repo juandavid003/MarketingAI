@@ -6,8 +6,9 @@ import { Users, LogOut, Plus, Menu, X, ChevronsUpDown } from "lucide-react";
 import { useEffect, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import { MODULE_GROUPS, OVERVIEW, activeModuleKey, moduleHref, type ModuleDef } from "@/components/business/modules";
+import { FeedbackButton } from "@/components/FeedbackButton";
 
-type BusinessSummary = { id: string; name: string; industry: string };
+type BusinessSummary = { id: string; name: string; industry: string; isDemo: boolean; role: "owner" | "manager" };
 
 // Remembered so /start (after login) opens the last business used.
 const LAST_BUSINESS_COOKIE = "lastBusinessId";
@@ -16,11 +17,13 @@ export function AppShell({
   businesses,
   userEmail,
   isAdmin,
+  canCreateBusiness,
   children,
 }: {
   businesses: BusinessSummary[];
   userEmail: string;
   isAdmin: boolean;
+  canCreateBusiness: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -91,12 +94,18 @@ export function AppShell({
                   {businesses.map((b) => (
                     <option key={b.id} value={b.id}>
                       {b.name}
+                      {b.isDemo ? " (demo)" : ""}
                     </option>
                   ))}
                 </select>
                 <ChevronsUpDown className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2 text-faint" />
               </div>
-              {current && <p className="mt-1 truncate px-2 text-xs text-faint">{current.industry}</p>}
+              {current && (
+                <p className="mt-1 truncate px-2 text-xs text-faint">
+                  {current.industry}
+                  {current.role === "manager" && " · eres encargado de redes"}
+                </p>
+              )}
             </div>
           )}
 
@@ -110,7 +119,9 @@ export function AppShell({
                   <div key={group.label}>
                     <p className="px-2 pb-1 text-xs font-medium uppercase tracking-wide text-faint">{group.label}</p>
                     <div className="space-y-0.5">
-                      {group.modules.map((mod) => (
+                      {group.modules
+                        .filter((mod) => !mod.ownerOnly || current?.role === "owner")
+                        .map((mod) => (
                         <ModuleLink
                           key={mod.key}
                           businessId={currentBusinessId}
@@ -129,9 +140,11 @@ export function AppShell({
             )}
 
             <div className="space-y-0.5 border-t border-border pt-3">
-              <NavLink href="/onboarding" icon={Plus} active={pathname === "/onboarding"}>
-                Nuevo negocio
-              </NavLink>
+              {canCreateBusiness && (
+                <NavLink href="/onboarding" icon={Plus} active={pathname === "/onboarding"}>
+                  Nuevo negocio
+                </NavLink>
+              )}
               {isAdmin && (
                 <NavLink href="/admin" icon={Users} active={pathname === "/admin"}>
                   Clientes
@@ -141,6 +154,7 @@ export function AppShell({
           </nav>
 
           <div className="mt-4 space-y-2 border-t border-border pt-3">
+            <FeedbackButton businessId={currentBusinessId} path={pathname} />
             <p className="truncate px-2 text-xs text-faint">{userEmail}</p>
             <button
               type="button"

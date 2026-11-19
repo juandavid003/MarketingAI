@@ -1,7 +1,7 @@
 import "server-only";
 import path from "path";
 import { createWriteStream } from "fs";
-import { mkdir, readFile, writeFile, stat, rm } from "fs/promises";
+import { mkdir, readFile, writeFile, stat, rm, readdir } from "fs/promises";
 import { Readable } from "stream";
 import { pipeline } from "stream/promises";
 
@@ -115,4 +115,33 @@ export function siblingKey(key: string, filename: string): string {
   const sibling = [...key.split("/").slice(0, -1), filename].join("/");
   assertValidKey(sibling);
   return sibling;
+}
+
+// Bytes used on disk by one business (its whole folder). Used for the
+// storage quota (lib/usage.ts); a missing folder counts as 0.
+export async function businessStorageBytes(businessId: string): Promise<number> {
+  if (!/^[A-Za-z0-9_-]+$/.test(businessId)) throw new Error(`Invalid business id: ${businessId}`);
+  return directoryBytes(path.join(STORAGE_ROOT, businessId));
+}
+
+async function directoryBytes(dir: string): Promise<number> {
+  let entries;
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch {
+    return 0;
+  }
+  let total = 0;
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) total += await directoryBytes(full);
+    else if (entry.isFile()) total += await stat(full).then((s) => s.size, () => 0);
+  }
+  return total;
+}
+
+// Removes everything stored for a business (used when a demo is deleted).
+export async function deleteBusinessFolder(businessId: string): Promise<void> {
+  if (!/^[A-Za-z0-9_-]+$/.test(businessId)) throw new Error(`Invalid business id: ${businessId}`);
+  await rm(path.join(STORAGE_ROOT, businessId), { recursive: true, force: true });
 }

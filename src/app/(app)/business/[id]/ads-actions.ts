@@ -21,7 +21,7 @@ import {
 // Paid ads are frozen (see lib/features.ts). Every action below goes through
 // this first, so a stale form or hand-crafted request can't create spend.
 async function requireAdsAccess(businessId: string) {
-  await requireBusinessAccess(businessId);
+  await requireBusinessAccess(businessId, "manage_connections");
   if (!ADS_ENABLED) {
     redirectToBusiness(businessId, "La pauta en Meta Ads está desactivada por ahora.");
   }

@@ -9,6 +9,8 @@ import { Card } from "@/components/ui/Card";
 import { LinkButton } from "@/components/ui/Button";
 import { Notice, Detail } from "@/components/business/sections";
 import { MODULE_GROUPS, moduleHref } from "@/components/business/modules";
+import { Button } from "@/components/ui/Button";
+import { deleteDemoBusiness } from "@/app/(app)/onboarding/actions";
 
 
 // Resumen: the selected business at a glance — setup checklist, what's
@@ -22,7 +24,8 @@ export default async function BusinessOverviewPage({
 }) {
   const { id } = await params;
   const sp = await searchParams;
-  const { business } = await requireBusinessAccess(id);
+  const { business, role } = await requireBusinessAccess(id);
+  const isOwner = role === "owner";
 
   const today = dayFromIso(isoDay(new Date()))!;
   const since30 = daysAgo(30);
@@ -54,8 +57,18 @@ export default async function BusinessOverviewPage({
 
   const steps = [
     { done: profile.percent >= 80, label: `Completa el perfil del negocio (${profile.percent}%)`, href: `/business/${id}/profile` },
-    { done: business.aiProvider != null, label: "Configura tu IA (tu propia API key)", href: `/business/${id}/settings` },
-    { done: connection != null, label: "Conecta Facebook e Instagram", href: `/business/${id}/connections` },
+    // Keys and connections are the owner's (lib/access.ts): a manager sees
+    // the step but not a link to a page they can't open.
+    {
+      done: business.aiProvider != null,
+      label: isOwner ? "Configura tu IA (tu propia API key)" : "El dueño debe configurar la IA",
+      href: isOwner ? `/business/${id}/settings` : null,
+    },
+    {
+      done: connection != null,
+      label: isOwner ? "Conecta Facebook e Instagram" : "El dueño debe conectar Facebook e Instagram",
+      href: isOwner ? `/business/${id}/connections` : null,
+    },
     { done: pieces > 0, label: "Escribe tu primer guion", href: `/business/${id}/copywriter` },
     { done: scheduled > 0, label: "Planifica tus próximas publicaciones", href: `/business/${id}/calendar` },
     { done: links > 0, label: "Crea un enlace rastreable para tu bio", href: `/business/${id}/links` },
@@ -81,6 +94,22 @@ export default async function BusinessOverviewPage({
       </p>
       <h1 className="mt-1 text-2xl font-semibold">{business.name}</h1>
 
+      {business.isDemo && (
+        <Card className="mt-4 flex flex-wrap items-center justify-between gap-3 p-4 text-sm">
+          <p className="min-w-0 flex-1 text-muted">
+            <strong className="text-foreground">Negocio de demostración.</strong> Los datos son inventados para que
+            recorras los módulos. Nada se publica desde aquí.
+          </p>
+          {isOwner && (
+            <form action={deleteDemoBusiness.bind(null, id)}>
+              <Button type="submit" size="sm" variant="secondary">
+                Eliminar demo
+              </Button>
+            </form>
+          )}
+        </Card>
+      )}
+
       <div className="mt-4 space-y-2">
         {sp.campaign_error && <Notice tone="danger">{sp.campaign_error}</Notice>}
         {sp.error && <Notice tone="danger">{sp.error}</Notice>}
@@ -92,14 +121,17 @@ export default async function BusinessOverviewPage({
           <ul className="mt-3 space-y-2 text-sm">
             {steps.map((s) => (
               <li key={s.label}>
-                <Link href={s.href} className={`flex items-center gap-2 ${s.done ? "text-muted line-through" : "hover:text-brand"}`}>
-                  {s.done ? (
-                    <CheckCircle2 className="size-4 text-green-600" />
-                  ) : (
-                    <Circle className="size-4 text-faint" />
-                  )}
-                  {s.label}
-                </Link>
+                {s.href ? (
+                  <Link href={s.href} className={`flex items-center gap-2 ${s.done ? "text-muted line-through" : "hover:text-brand"}`}>
+                    {s.done ? <CheckCircle2 className="size-4 text-green-600" /> : <Circle className="size-4 text-faint" />}
+                    {s.label}
+                  </Link>
+                ) : (
+                  <span className={`flex items-center gap-2 ${s.done ? "text-muted line-through" : "text-muted"}`}>
+                    {s.done ? <CheckCircle2 className="size-4 text-green-600" /> : <Circle className="size-4 text-faint" />}
+                    {s.label}
+                  </span>
+                )}
               </li>
             ))}
           </ul>

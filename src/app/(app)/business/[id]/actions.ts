@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireBusinessAccess } from "@/lib/dal";
+import { audit } from "@/lib/audit";
 import { encryptSecret, decryptSecret, encryptToken, decryptToken } from "@/lib/crypto";
 import { generateCampaign, generateStoryboard, generateImagePrompt, resolveModel, type AiProvider, type GeneratedCampaign } from "@/lib/ai";
 import { fetchPages, publishPagePhoto } from "@/lib/meta";
@@ -27,13 +28,14 @@ function resolveOpenAiImageKeyEncrypted(business: {
 }
 
 export async function disconnectMeta(businessId: string) {
-  await requireBusinessAccess(businessId);
-  await prisma.socialConnection.deleteMany({ where: { businessId } });
+  const { user } = await requireBusinessAccess(businessId, "manage_connections");
+  const { count } = await prisma.socialConnection.deleteMany({ where: { businessId } });
+  if (count > 0) await audit({ action: "meta.disconnected", actor: user, businessId });
   revalidatePath(`/business/${businessId}`, "layout");
 }
 
 export async function refreshPages(businessId: string) {
-  await requireBusinessAccess(businessId);
+  await requireBusinessAccess(businessId, "manage_connections");
   const connection = await prisma.socialConnection.findUnique({ where: { businessId } });
   if (!connection) return;
 
@@ -72,7 +74,7 @@ export async function saveAiSettings(
   _prevState: AiSettingsState,
   formData: FormData
 ): Promise<AiSettingsState> {
-  await requireBusinessAccess(businessId);
+  const { user } = await requireBusinessAccess(businessId, "manage_settings");
 
   const provider = formData.get("provider");
   const apiKey = formData.get("apiKey");
@@ -139,6 +141,12 @@ export async function saveAiSettings(
       ...(imageKeyTrimmed ? { openaiImageKeyEncrypted: encryptSecret(imageKeyTrimmed) } : {}),
     },
   });
+  await audit({
+    action: "ai_key.updated",
+    actor: user,
+    businessId,
+    details: { provider, model, transcription: Boolean(transcriptionKeyTrimmed), images: Boolean(imageKeyTrimmed) },
+  });
 
   revalidatePath(`/business/${businessId}`);
   revalidatePath(`/business/${businessId}/settings`);
@@ -152,24 +160,27 @@ export async function saveGeminiKey(
   _prevState: AiSettingsState,
   formData: FormData
 ): Promise<AiSettingsState> {
-  await requireBusinessAccess(businessId);
+  const { user } = await requireBusinessAccess(businessId, "manage_settings");
   const key = String(formData.get("geminiApiKey") ?? "").trim();
   if (key.length < 20) return { error: "Pega tu API key de Google AI Studio." };
   const check = await checkGeminiKey(key);
   if (check.status === "invalid") return { error: check.message };
   await prisma.business.update({ where: { id: businessId }, data: { geminiApiKeyEncrypted: encryptSecret(key) } });
+  await audit({ action: "gemini_key.updated", actor: user, businessId });
   revalidatePath(`/business/${businessId}/settings`);
   return { success: true, warning: check.message };
 }
 
 export async function clearGeminiKey(businessId: string) {
-  await requireBusinessAccess(businessId);
+  const { user } = await requireBusinessAccess(businessId, "manage_settings");
+  await audit({ action: "gemini_key.cleared", actor: user, businessId });
   await prisma.business.update({ where: { id: businessId }, data: { geminiApiKeyEncrypted: null } });
   revalidatePath(`/business/${businessId}/settings`);
 }
 
 export async function clearAiSettings(businessId: string) {
-  await requireBusinessAccess(businessId);
+  const { user } = await requireBusinessAccess(businessId, "manage_settings");
+  await audit({ action: "ai_key.cleared", actor: user, businessId });
   await prisma.business.update({
     where: { id: businessId },
     data: { aiProvider: null, aiApiKeyEncrypted: null, aiModel: null, aiConfiguredAt: null },
@@ -179,7 +190,8 @@ export async function clearAiSettings(businessId: string) {
 }
 
 export async function clearTranscriptionKey(businessId: string) {
-  await requireBusinessAccess(businessId);
+  const { user } = await requireBusinessAccess(businessId, "manage_settings");
+  await audit({ action: "transcription_key.cleared", actor: user, businessId });
   await prisma.business.update({
     where: { id: businessId },
     data: { openaiTranscriptionKeyEncrypted: null },
@@ -189,7 +201,8 @@ export async function clearTranscriptionKey(businessId: string) {
 }
 
 export async function clearImageKey(businessId: string) {
-  await requireBusinessAccess(businessId);
+  const { user } = await requireBusinessAccess(businessId, "manage_settings");
+  await audit({ action: "image_key.cleared", actor: user, businessId });
   await prisma.business.update({
     where: { id: businessId },
     data: { openaiImageKeyEncrypted: null },
@@ -500,7 +513,7 @@ export async function publishCampaignImage(
   contentIndex: number,
   formData: FormData
 ) {
-  await requireBusinessAccess(businessId);
+  const { user } = await requireBusinessAccess(businessId);
 
   const facebookPageId = formData.get("pageId");
   if (typeof facebookPageId !== "string" || facebookPageId.length === 0) {
@@ -577,6 +590,13 @@ export async function publishCampaignImage(
         permalinkUrl,
         message: caption,
       },
+    });
+    await audit({
+      action: "publish.now",
+      actor: user,
+      businessId,
+      target: campaignId,
+      details: { platform: "facebook", kind: "image", page: page.name, permalink: permalinkUrl },
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Error al publicar en Facebook.";

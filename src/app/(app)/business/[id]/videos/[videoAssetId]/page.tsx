@@ -127,7 +127,14 @@ export default async function VideoAssetPage({
 
       <div className="mt-6">
         <p className="text-sm font-medium text-muted">Video original</p>
-        <video src={fileUrl(video.originalPath)} controls className="mt-2 w-full rounded-lg border border-border" />
+        {video.originalDeletedAt ? (
+          <p className="mt-2 text-sm text-faint">
+            El archivo original se borró automáticamente para ahorrar espacio; las versiones editadas siguen
+            disponibles abajo.
+          </p>
+        ) : (
+          <video src={fileUrl(video.originalPath)} controls className="mt-2 w-full rounded-lg border border-border" />
+        )}
       </div>
 
       {transcript && (

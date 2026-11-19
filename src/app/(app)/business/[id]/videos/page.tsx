@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/Badge";
 import { LinkButton } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { currentUsage } from "@/lib/usageServer";
+import { usageLimits, formatBytes, ORIGINAL_RETENTION_DAYS } from "@/lib/usage";
 
 const STATUS: Record<string, { label: string; tone: "success" | "warning" | "danger" | "neutral" }> = {
   ready: { label: "Listo", tone: "success" },
@@ -15,11 +17,15 @@ const STATUS: Record<string, { label: string; tone: "success" | "warning" | "dan
 export default async function VideosPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { business } = await requireBusinessAccess(id);
-  const videos = await prisma.videoAsset.findMany({
-    where: { businessId: id },
-    orderBy: { createdAt: "desc" },
-    include: { _count: { select: { versions: true } } },
-  });
+  const [videos, usage] = await Promise.all([
+    prisma.videoAsset.findMany({
+      where: { businessId: id },
+      orderBy: { createdAt: "desc" },
+      include: { _count: { select: { versions: true } } },
+    }),
+    currentUsage(id),
+  ]);
+  const limits = usageLimits();
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-10">
@@ -33,6 +39,12 @@ export default async function VideosPage({ params }: { params: Promise<{ id: str
           </LinkButton>
         }
       />
+      <p className="mb-4 text-xs text-faint">
+        Uso del mes: {usage.videoMinutes} de {limits.videoMinutesPerMonth} min de video ·{" "}
+        {formatBytes(usage.storageBytes)} de {formatBytes(limits.storageBytes)} de espacio. Los originales
+        subidos para editar se borran {ORIGINAL_RETENTION_DAYS} días después de estar listos; las versiones
+        editadas se conservan.
+      </p>
       {videos.length === 0 ? (
         <EmptyState icon={Clapperboard} title="Todavía no hay videos" />
       ) : (

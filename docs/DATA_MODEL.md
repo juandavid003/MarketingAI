@@ -132,7 +132,8 @@ model Lead {
 |---|---|
 | `ContentPlan`, `ContentIdea` | Plan semanal: pilar, propósito, día, formato, hook, estado (idea → guion → grabado → publicado). |
 | `PublishJob` | Publicación programada multi-plataforma con estado, intentos y último error. |
-| `Organization`, `Membership(role)` | Multiusuario y roles. |
-| `AuditEvent` | Quién hizo qué (publicar, cambiar keys, habilitar cuentas). |
-| `UsageCounter` | Minutos de video y almacenamiento por negocio/mes (límites de plan). |
+| `BusinessMember(role)` ✅ | Encargado de redes por negocio (en vez de `Organization`): invitación por enlace secreto (`tokenHash`), el dueño sigue siendo `Business.userId`. Reglas en `lib/access.ts`. |
+| `AuditEvent` ✅ | Quién hizo qué: keys, conexión Meta, publicaciones (también las del programador), activación de cuentas, equipo. Sin FKs para que sobreviva a borrados; nunca guarda secretos. |
+| `Feedback` ✅ | Comentarios de los usuarios desde la app; se leen en /admin. |
+| ~~`UsageCounter`~~ | No hizo falta: minutos del mes y espacio se calculan al subir (`lib/usageServer.ts`). `VideoAsset.originalDeletedAt` marca originales borrados por la limpieza. |
 | `IndustryConfig` | Sugerencias por industria como datos (pilares, CTAs, ejemplos). |

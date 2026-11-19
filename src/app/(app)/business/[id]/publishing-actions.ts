@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireBusinessAccess } from "@/lib/dal";
+import { audit } from "@/lib/audit";
 import { runDuePublishJobs } from "@/lib/jobs/publishJobs";
 import { parseDestination, localInputToUtc, IG_PUBLISH_ENABLED } from "@/lib/publishing";
 
@@ -13,7 +14,7 @@ const fail = (businessId: string, message: string): never =>
   redirect(`${publishingPath(businessId)}?error=${encodeURIComponent(message)}`);
 
 export async function schedulePublication(businessId: string, formData: FormData) {
-  await requireBusinessAccess(businessId);
+  const { user } = await requireBusinessAccess(businessId);
   const versionId = String(formData.get("versionId") ?? "");
   const destination = parseDestination(String(formData.get("destination") ?? ""));
   const caption = String(formData.get("caption") ?? "").trim().slice(0, 5000);
@@ -51,7 +52,7 @@ export async function schedulePublication(businessId: string, formData: FormData
     ? await prisma.contentPlanItem.findFirst({ where: { id: planItemId, businessId }, select: { id: true } })
     : null;
 
-  await prisma.publishJob.create({
+  const job = await prisma.publishJob.create({
     data: {
       businessId,
       videoVersionId: version!.id,
@@ -66,33 +67,44 @@ export async function schedulePublication(businessId: string, formData: FormData
   if (item) {
     await prisma.contentPlanItem.update({ where: { id: item.id }, data: { status: "ready" } });
   }
+  await audit({
+    action: now ? "publish.now" : "publish.scheduled",
+    actor: user,
+    businessId,
+    target: job.id,
+    details: { platform: job.platform, target: job.target, scheduledAt: job.scheduledAt.toISOString() },
+  });
   if (now && destination!.target !== "manual") after(() => runDuePublishJobs());
   revalidatePath(publishingPath(businessId));
   redirect(`${publishingPath(businessId)}?saved=1`);
 }
 
 export async function cancelPublication(businessId: string, jobId: string) {
-  await requireBusinessAccess(businessId);
-  await prisma.publishJob.updateMany({
+  const { user } = await requireBusinessAccess(businessId);
+  const canceled = await prisma.publishJob.updateMany({
     where: { id: jobId, businessId, status: { in: ["scheduled", "failed"] } },
     data: { status: "canceled", nextAttemptAt: null },
   });
+  if (canceled.count > 0) await audit({ action: "publish.canceled", actor: user, businessId, target: jobId });
   revalidatePath(publishingPath(businessId));
 }
 
 export async function retryPublication(businessId: string, jobId: string) {
-  await requireBusinessAccess(businessId);
+  const { user } = await requireBusinessAccess(businessId);
   const updated = await prisma.publishJob.updateMany({
     where: { id: jobId, businessId, status: "failed" },
     data: { status: "scheduled", attempts: 0, nextAttemptAt: null, scheduledAt: new Date(), lastError: null },
   });
-  if (updated.count > 0) after(() => runDuePublishJobs());
+  if (updated.count > 0) {
+    await audit({ action: "publish.retried", actor: user, businessId, target: jobId });
+    after(() => runDuePublishJobs());
+  }
   revalidatePath(publishingPath(businessId));
 }
 
 // Manual destinations: the owner posted it and pastes the link.
 export async function markPublished(businessId: string, jobId: string, formData: FormData) {
-  await requireBusinessAccess(businessId);
+  const { user } = await requireBusinessAccess(businessId);
   const job = await prisma.publishJob.findFirst({ where: { id: jobId, businessId, target: "manual" } });
   if (!job) return;
   const url = String(formData.get("url") ?? "").trim();
@@ -101,6 +113,7 @@ export async function markPublished(businessId: string, jobId: string, formData:
     where: { id: jobId },
     data: { status: "published", publishedAt: new Date(), permalink },
   });
+  await audit({ action: "publish.marked_done", actor: user, businessId, target: jobId, details: { platform: job.platform } });
   if (job.planItemId) {
     await prisma.contentPlanItem
       .update({ where: { id: job.planItemId }, data: { status: "published", publishedUrl: permalink ?? undefined } })

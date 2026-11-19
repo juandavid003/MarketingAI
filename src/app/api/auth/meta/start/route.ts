@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { businessAccessForUser, type SessionUser } from "@/lib/dal";
 import { buildMetaAuthUrl } from "@/lib/meta";
 import { auth } from "@/lib/auth";
 
@@ -18,8 +18,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const business = await prisma.business.findUnique({ where: { id: businessId } });
-  if (!business || business.userId !== session.user.id) {
+  // Connecting a network is owner-only (lib/access.ts).
+  const access = await businessAccessForUser(session.user as SessionUser, businessId, "manage_connections");
+  if (!access) {
     return NextResponse.json({ error: "Business not found" }, { status: 404 });
   }
 

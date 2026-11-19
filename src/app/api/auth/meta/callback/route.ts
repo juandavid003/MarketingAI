@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { publicBaseUrl } from "@/lib/links";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+import { businessAccessForUser, type SessionUser } from "@/lib/dal";
+import { audit } from "@/lib/audit";
 import { encryptToken } from "@/lib/crypto";
 import {
   exchangeCodeForToken,
@@ -40,8 +43,10 @@ export async function GET(request: NextRequest) {
   }
 
   const [businessId] = state.split(":");
-  const business = await prisma.business.findUnique({ where: { id: businessId } });
-  if (!business) {
+  // The state cookie already ties this callback to the browser that started
+  // it; also require that the signed-in user may still manage connections.
+  const session = await auth.api.getSession({ headers: request.headers });
+  if (!session || !(await businessAccessForUser(session.user as SessionUser, businessId, "manage_connections"))) {
     return redirectWithError(request, null, "Negocio no encontrado.");
   }
 
@@ -90,6 +95,13 @@ export async function GET(request: NextRequest) {
           })),
         },
       },
+    });
+
+    await audit({
+      action: "meta.connected",
+      actor: session.user,
+      businessId,
+      details: { metaUser: me.name, pages: pages.length },
     });
 
     const url = new URL(`/business/${businessId}/connections`, publicBaseUrl());

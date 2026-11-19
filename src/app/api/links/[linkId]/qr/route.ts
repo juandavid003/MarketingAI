@@ -2,19 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import QRCode from "qrcode";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { businessAccessForUser, type SessionUser } from "@/lib/dal";
 import { shortUrl } from "@/lib/links";
 
-// Downloadable QR (PNG or SVG) for a tracked link. Owner only.
+// Downloadable QR (PNG or SVG) for a tracked link. Owner or manager only.
 export async function GET(request: NextRequest, { params }: { params: Promise<{ linkId: string }> }) {
   const { linkId } = await params;
   const session = await auth.api.getSession({ headers: request.headers });
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const link = await prisma.trackedLink.findUnique({
-    where: { id: linkId },
-    include: { business: { select: { userId: true } } },
-  });
-  if (!link || link.business.userId !== session.user.id) {
+  const link = await prisma.trackedLink.findUnique({ where: { id: linkId } });
+  if (!link || !(await businessAccessForUser(session.user as SessionUser, link.businessId))) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 

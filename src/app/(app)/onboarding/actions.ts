@@ -2,7 +2,9 @@
 
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireEnabledAccount } from "@/lib/dal";
+import { requireEnabledAccount, requireBusinessAccess } from "@/lib/dal";
+import { createDemoBusiness } from "@/lib/demoBusiness";
+import { deleteBusinessFolder } from "@/lib/storage";
 
 export type OnboardingState = {
   error?: string;
@@ -84,4 +86,21 @@ export async function createBusiness(
   }
 
   redirect(`/business/${businessId}`);
+}
+
+// Fictional business to explore the app (lib/demoBusiness.ts). One per user.
+export async function createDemo() {
+  const user = await requireEnabledAccount();
+  const id = await createDemoBusiness(user.id);
+  redirect(`/business/${id}`);
+}
+
+// Only demo businesses can be deleted from the app for now.
+export async function deleteDemoBusiness(businessId: string) {
+  const { business } = await requireBusinessAccess(businessId, "manage_settings");
+  if (!business.isDemo) redirect(`/business/${businessId}`);
+  await prisma.business.delete({ where: { id: businessId } });
+  // Files of the demo, if the user uploaded any while exploring.
+  await deleteBusinessFolder(businessId).catch(() => {});
+  redirect("/start");
 }

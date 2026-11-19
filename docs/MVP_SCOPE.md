@@ -39,7 +39,7 @@ El MVP está "terminado" cuando **un cliente real que paga** puede completar el 
 | Landing pages por campaña | Los enlaces rastreables a WhatsApp/web cubren el caso principal. | Si los pilotos lo piden. |
 | CRM (pipeline, tareas, recordatorios) | Fuera del foco; registramos leads, no gestionamos ventas. | No planeado. |
 | Analítica predictiva, agentes autónomos | Sobreingeniería para la etapa. | No planeado. |
-| Organizaciones multiusuario y roles | Hoy 1 usuario = dueño de sus negocios. Suficiente para pilotos. | Sprint 6 (para encargados de redes). |
+| Organizaciones multiusuario y roles | Hecho en forma simple (Sprint 6): dueño + encargados de redes por negocio. Sin organizaciones con varios dueños. | Organizaciones completas si un cliente lo pide. |
 | Pasarela de pago / planes múltiples | Cobro manual alcanza para < 20 clientes. | Tras validar pago recurrente. |
 | Música | Riesgo de derechos de autor. | Biblioteca con licencia, post-MVP. |
 

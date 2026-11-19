@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireBusinessAccess } from "@/lib/dal";
+import { can } from "@/lib/access";
+import { OwnerOnlyNotice } from "@/components/business/sections";
 import { clearAiSettings, clearTranscriptionKey, clearImageKey, clearGeminiKey } from "../actions";
 import { parseReview } from "@/lib/takeReview";
 import { GEMINI_VIDEO_MODEL } from "@/lib/visualReview";
@@ -22,7 +24,10 @@ export default async function AiSettingsPage({
 }) {
   const { id } = await params;
 
-  await requireBusinessAccess(id);
+  const { role } = await requireBusinessAccess(id);
+  if (!can(role, "manage_settings")) {
+    return <OwnerOnlyNotice title="Inteligencia artificial" what="El proveedor de IA y sus API keys" />;
+  }
 
   const business = await prisma.business.findUnique({
     where: { id },

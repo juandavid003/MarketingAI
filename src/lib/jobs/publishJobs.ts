@@ -4,6 +4,7 @@ import { publishPageVideo } from "@/lib/meta";
 import { readStored } from "@/lib/storage";
 import { signedMediaUrl } from "@/lib/signedMedia";
 import { shortErrorMessage } from "@/lib/errors";
+import { audit } from "@/lib/audit";
 import {
   createReelContainer,
   containerStatus,
@@ -181,6 +182,7 @@ async function succeed(job: Job, externalId: string, permalink: string | null): 
     where: { id: job.id },
     data: { status: "published", externalId, permalink, publishedAt: new Date(), lastError: null, nextAttemptAt: null },
   });
+  await audit({ action: "publish.succeeded", businessId: job.businessId, target: job.id, details: { platform: job.platform, permalink } });
   if (job.planItemId) {
     await prisma.contentPlanItem
       .update({ where: { id: job.planItemId }, data: { status: "published", publishedUrl: permalink ?? undefined } })
@@ -204,4 +206,7 @@ async function failAttempt(job: Job, err: unknown): Promise<void> {
         : { status: "failed", nextAttemptAt: null }),
     },
   });
+  if (delay == null) {
+    await audit({ action: "publish.failed", businessId: job.businessId, target: job.id, details: { platform: job.platform, error: message } });
+  }
 }

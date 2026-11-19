@@ -3,13 +3,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { zipSync, strToU8, type Zippable } from "fflate";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { businessAccessForUser, type SessionUser } from "@/lib/dal";
 import { readStored } from "@/lib/storage";
 import { parsePlatformCopy, COPY_PLATFORMS } from "@/lib/platformCopy";
 import { buildPackageReadme, packageFileName } from "@/lib/exportPackage";
 
 // "Paquete de publicación": every format of one video + its thumbnail + the
 // texts to paste (general and per network), zipped, for publishing by hand
-// on TikTok, YouTube or anywhere we can't post directly. Owner only.
+// on TikTok, YouTube or anywhere we can't post directly. Owner or manager only.
 export async function GET(request: NextRequest, { params }: { params: Promise<{ assetId: string }> }) {
   const { assetId } = await params;
   const session = await auth.api.getSession({ headers: request.headers });
@@ -18,12 +19,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const asset = await prisma.videoAsset.findUnique({
     where: { id: assetId },
     include: {
-      business: { select: { userId: true, name: true } },
+      business: { select: { name: true } },
       versions: { orderBy: { createdAt: "asc" } },
       contentPiece: { select: { platformCopy: true } },
     },
   });
-  if (!asset || asset.business.userId !== session.user.id || asset.status !== "ready") {
+  if (
+    !asset ||
+    asset.status !== "ready" ||
+    !(await businessAccessForUser(session.user as SessionUser, asset.businessId))
+  ) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 

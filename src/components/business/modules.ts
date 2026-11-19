@@ -12,6 +12,7 @@ import {
   Plug,
   Bot,
   Send,
+  UsersRound,
   type LucideIcon,
 } from "lucide-react";
 
@@ -26,6 +27,7 @@ export type ModuleDef = {
   icon: LucideIcon;
   description: string;
   owns?: string[];
+  ownerOnly?: boolean; // hidden for managers (lib/access.ts)
 };
 
 export const OVERVIEW: ModuleDef = {
@@ -116,8 +118,9 @@ export const MODULE_GROUPS: { label: string; modules: ModuleDef[] }[] = [
     label: "Negocio",
     modules: [
       { key: "profile", label: "Perfil", path: "profile", icon: Building2, description: "Lo que la IA sabe de tu negocio." },
-      { key: "connections", label: "Conexiones", path: "connections", icon: Plug, description: "Facebook e Instagram." },
-      { key: "settings", label: "Inteligencia artificial", path: "settings", icon: Bot, description: "Tu proveedor y API keys." },
+      { key: "connections", label: "Conexiones", path: "connections", icon: Plug, description: "Facebook e Instagram.", ownerOnly: true },
+      { key: "settings", label: "Inteligencia artificial", path: "settings", icon: Bot, description: "Tu proveedor y API keys.", ownerOnly: true },
+      { key: "team", label: "Equipo", path: "team", icon: UsersRound, description: "Invita a tu encargado de redes.", ownerOnly: true },
     ],
   },
 ];

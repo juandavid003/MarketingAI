@@ -60,7 +60,7 @@ export default function TermsPage() {
 
         <Section title="Sin garantías">
           <p>
-            La app se ofrece "tal cual". No garantizamos resultados específicos de las campañas ni
+            La app se ofrece “tal cual”. No garantizamos resultados específicos de las campañas ni
             que el contenido generado por IA esté siempre libre de errores.
           </p>
         </Section>

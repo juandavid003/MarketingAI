@@ -7,6 +7,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireBusinessAccess } from "@/lib/dal";
+import { audit } from "@/lib/audit";
+import { uploadBlockedReason } from "@/lib/usageServer";
 import { decryptToken } from "@/lib/crypto";
 import { publishPageVideo } from "@/lib/meta";
 import { storageKey, saveUpload, readStored } from "@/lib/storage";
@@ -45,6 +47,8 @@ export async function uploadAndProcessVideo(
   if (file.size > MAX_UPLOAD_BYTES) {
     return { error: "El video supera el máximo de 500 MB." };
   }
+  const blocked = await uploadBlockedReason(businessId, file.size);
+  if (blocked) return { error: blocked };
 
   const rawExt = path.extname(file.name).toLowerCase();
   const ext = ALLOWED_EXTENSIONS.has(rawExt) ? rawExt : ".mp4";
@@ -100,7 +104,7 @@ export async function publishVideoVersion(
   versionId: string,
   formData: FormData
 ) {
-  await requireBusinessAccess(businessId);
+  const { user } = await requireBusinessAccess(businessId);
 
   const facebookPageId = formData.get("pageId");
   if (typeof facebookPageId !== "string" || facebookPageId.length === 0) {
@@ -155,6 +159,13 @@ export async function publishVideoVersion(
         permalinkUrl,
         message: caption,
       },
+    });
+    await audit({
+      action: "publish.now",
+      actor: user,
+      businessId,
+      target: versionId,
+      details: { platform: "facebook", page: page.name, permalink: permalinkUrl },
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Error al publicar el video en Facebook.";

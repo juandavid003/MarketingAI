@@ -86,7 +86,13 @@ Pedido del fundador: separar la app en módulos al lado del selector de negocio,
 | Ad Library: mostrar limitaciones por país + enlace a la biblioteca web | S |
 | Oportunidades estacionales (calendario local) | S |
 
-## Sprint 6 — Listo para piloto pagado
+## Sprint 6 — Listo para piloto pagado ✅ 2026-11-19
+- **Pruebas** (`npm test`, Vitest; corren en GitHub Actions antes de cada deploy junto con typecheck y lint): reglas de acceso y roles, guardia estático que exige verificación de acceso en **cada** acción de servidor, ruta y página de negocio, cifrado AES-GCM y URLs firmadas, redirección `/r/[slug]` (UTM, bots, slugs inválidos), llaves de almacenamiento, límites de uso, invitaciones y **pipeline de video** completo con un video de muestra generado por ffmpeg. `npm run test:db` prueba el aislamiento contra la base real (filas `__test__` que se borran al terminar).
+- **Equipo:** el dueño invita a su encargado de redes desde *Equipo* con un enlace secreto (el registro no verifica correos, así que el correo no da acceso). El encargado trabaja (ideas, guiones, videos, publicar, enlaces, leads) pero no ve keys, conexiones ni equipo, y no necesita pagar; si el dueño queda deshabilitado, el negocio se cierra para ambos.
+- **`AuditEvent`** en keys, conexión/desconexión de Meta, publicar/programar/cancelar/reintentar, resultados del programador, habilitar cuentas y equipo. Visible en *Equipo* (por negocio) y en /admin.
+- **Límites de uso** por negocio: 120 min de video al mes y 10 GB (ajustables con `USAGE_VIDEO_MINUTES_PER_MONTH` y `USAGE_STORAGE_GB`), mostrados en *Videos*. Los originales subidos para editar se borran 30 días después de estar listos (las versiones editadas se conservan; las tomas por escena no se tocan porque se re-arman desde ellas).
+- **Negocio de demostración** (panadería ficticia con competidores, enlace, código y leads) desde el onboarding, eliminable; y **"Enviar comentarios"** en la barra lateral, leído en /admin.
+
 | Tarea | Complejidad |
 |---|---|
 | Pruebas: aislamiento entre negocios, auth, cifrado, pipeline de video (con video de muestra), redirección de enlaces | L |

@@ -55,7 +55,7 @@ export default function PrivacyPage() {
             </li>
             <li>
               Publicar contenido en las Páginas de Facebook/Instagram que el usuario administra —
-              solo cuando el usuario hace clic explícitamente en "Publicar".
+              solo cuando el usuario hace clic explícitamente en “Publicar”.
             </li>
             <li>
               Crear y administrar campañas de Meta Ads a solicitud del usuario. Toda campaña se

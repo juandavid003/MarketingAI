@@ -4,7 +4,7 @@ import path from "path";
 import { Readable } from "stream";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { businessAccessForUser, type SessionUser } from "@/lib/dal";
 import { assertValidKey, businessIdFromKey, localPath } from "@/lib/storage";
 
 // Serves private files from lib/storage.ts. Every request is authorized
@@ -44,16 +44,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const user = session.user as typeof session.user & { role?: string; enabled?: boolean };
-  if (user.role !== "admin" && !user.enabled) {
-    return notFound();
-  }
-
-  const business = await prisma.business.findUnique({
-    where: { id: businessIdFromKey(key) },
-    select: { userId: true },
-  });
-  if (!business || business.userId !== user.id) {
+  // Owner or accepted manager of the business that owns the key, with an
+  // active (paid) owner — same rules as every page (lib/access.ts).
+  if (!(await businessAccessForUser(session.user as SessionUser, businessIdFromKey(key)))) {
     return notFound();
   }
 

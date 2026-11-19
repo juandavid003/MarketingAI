@@ -457,3 +457,17 @@ export function Detail({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+// Shown to a manager ("encargado de redes") on pages only the owner can use
+// (lib/access.ts), instead of a 404 — many screens link to them.
+export function OwnerOnlyNotice({ title, what }: { title: string; what: string }) {
+  return (
+    <main className="mx-auto max-w-3xl px-6 py-10">
+      <h1 className="text-2xl font-semibold">{title}</h1>
+      <Card className="mt-6 p-5 text-sm text-muted">
+        {what} lo configura el dueño del negocio. Pídele que lo haga desde su cuenta; tú verás el
+        resultado aquí en cuanto esté listo.
+      </Card>
+    </main>
+  );
+}

@@ -1,10 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { requireBusinessAccess } from "@/lib/dal";
+import { can } from "@/lib/access";
 import { ADS_ENABLED } from "@/lib/features";
 import { decryptToken } from "@/lib/crypto";
 import { fetchAdAccounts, type AdAccount } from "@/lib/meta";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Notice, ConnectionCard, AdAccountCard, AiSettingsCard } from "@/components/business/sections";
+import { Notice, ConnectionCard, AdAccountCard, AiSettingsCard, OwnerOnlyNotice } from "@/components/business/sections";
 
 export default async function ConnectionsPage({
   params,
@@ -15,7 +16,10 @@ export default async function ConnectionsPage({
 }) {
   const { id } = await params;
   const { connected, meta_error: metaError, ad_error: adError } = await searchParams;
-  const { business } = await requireBusinessAccess(id);
+  const { business, role } = await requireBusinessAccess(id);
+  if (!can(role, "manage_connections")) {
+    return <OwnerOnlyNotice title="Conexiones" what="La conexión con Facebook e Instagram" />;
+  }
   const connection = await prisma.socialConnection.findUnique({
     where: { businessId: id },
     include: { pages: true, adAccount: true },

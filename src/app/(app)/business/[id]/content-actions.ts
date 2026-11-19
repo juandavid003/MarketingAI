@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireBusinessAccess } from "@/lib/dal";
+import { uploadBlockedReason } from "@/lib/usageServer";
 import { businessAi } from "@/lib/aiCredentials";
 import { toAiBusiness } from "@/lib/businessContext";
 import type { GeneratedCampaign } from "@/lib/ai";
@@ -238,6 +239,8 @@ export async function uploadSceneTake(
   if (!(file instanceof File) || file.size === 0) return { error: "Selecciona un video." };
   if (!file.type.startsWith("video/")) return { error: "El archivo debe ser un video." };
   if (file.size > MAX_TAKE_BYTES) return { error: "La toma supera el máximo de 300 MB." };
+  const blocked = await uploadBlockedReason(businessId, file.size);
+  if (blocked) return { error: blocked };
 
   const rawExt = path.extname(file.name).toLowerCase();
   const ext = ALLOWED_EXTENSIONS.has(rawExt) ? rawExt : ".mp4";

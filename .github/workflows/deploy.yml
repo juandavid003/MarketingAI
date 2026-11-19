@@ -23,7 +23,29 @@ permissions:
   packages: write
 
 jobs:
+  # Typecheck, lint and tests (incl. the video pipeline on a generated sample
+  # with ffmpeg) must pass before anything is built or deployed. The DB
+  # isolation tests (npm run test:db) need the production DB and run locally.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - run: npm ci
+      # Generated client isn't committed; generate only reads the schema.
+      - run: npx prisma generate
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      - run: npx tsc --noEmit -p .
+      - run: npx eslint
+      - run: npm test
+
   build:
+    needs: test
     runs-on: ubuntu-latest
     outputs:
       image: ${{ steps.meta.outputs.image }}

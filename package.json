@@ -7,7 +7,9 @@
     "build": "prisma generate && next build",
     "start": "prisma migrate deploy && next start",
     "lint": "eslint",
-    "db:tunnel": "ssh -i ~/.ssh/marketingai_deploy -N -L 5433:127.0.0.1:5432 root@159.203.186.126"
+    "db:tunnel": "ssh -i ~/.ssh/marketingai_deploy -N -L 5433:127.0.0.1:5432 root@159.203.186.126",
+    "test": "vitest run",
+    "test:db": "vitest run --config vitest.db.config.mts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",
@@ -33,6 +35,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.1",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.4"
   }
 }

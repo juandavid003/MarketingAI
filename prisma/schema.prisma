@@ -68,6 +68,10 @@ model Business {
   // Brand logo (storage key), overlaid on assembled videos.
   logoPath String?
 
+  // Sample business created for a new account (lib/demoBusiness.ts) — real
+  // rows, clearly labeled; never connected to any social network.
+  isDemo Boolean @default(false)
+
   products         Product[]
   socialConnection SocialConnection?
   campaigns        Campaign[]
@@ -80,6 +84,7 @@ model Business {
   promoCodes       PromoCode[]
   leads            Lead[]
   publishJobs      PublishJob[]
+  members          BusinessMember[]
 }
 
 // name is a free-text search term, matched against the public Meta Ad
@@ -347,6 +352,9 @@ model VideoAsset {
   contentPieceId String?
   // Set for renders of a CreativeVariant ("H2C1"); null for the base video.
   variantCode    String?
+  // The uploaded original is deleted some days after the edit is ready
+  // (lib/jobs/storageCleanup.ts); the rendered versions stay.
+  originalDeletedAt DateTime?
 
   versions VideoVersion[]
 }
@@ -452,9 +460,10 @@ model User {
   // start disabled until confirmed.
   enabled Boolean @default(false)
 
-  sessions   Session[]
-  accounts   Account[]
-  businesses Business[]
+  sessions    Session[]
+  accounts    Account[]
+  businesses  Business[]
+  memberships BusinessMember[]
 
   @@unique([email])
   @@map("user")
@@ -669,4 +678,64 @@ model PublishJob {
 
   @@index([status, scheduledAt])
   @@index([businessId, scheduledAt])
+}
+
+// ---------------------------------------------------------------------------
+// Sprint 6 — ready for a paid pilot.
+// ---------------------------------------------------------------------------
+
+// A person the owner lets work on one business ("encargado de redes").
+// Signup doesn't verify emails, so an invite is accepted through a secret
+// link (tokenHash = sha256 of the token), never by matching the email: email
+// is just a label. userId/acceptedAt are set on accept (lib/members.ts).
+// Owners stay Business.userId; this table only holds the extra people.
+model BusinessMember {
+  id          String    @id @default(cuid())
+  business    Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId  String
+  email       String // lowercased
+  user        User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String?
+  role        String    @default("manager") // manager
+  tokenHash   String?   @unique // cleared once accepted
+  invitedById String
+  createdAt   DateTime  @default(now())
+  acceptedAt  DateTime?
+
+  @@unique([businessId, email])
+  @@index([userId])
+  @@index([email])
+}
+
+// Who did what on sensitive actions (keys, connections, publishing, access,
+// members). No FKs on purpose: the trail outlives deleted users/businesses.
+// details is JSON and never holds secrets (lib/audit.ts).
+model AuditEvent {
+  id         String   @id @default(cuid())
+  actorId    String? // null = system (scheduler)
+  actorEmail String?
+  businessId String?
+  action     String // e.g. "ai_key.updated", "publish.scheduled"
+  target     String?
+  details    String?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([businessId, createdAt])
+  @@index([createdAt])
+}
+
+// In-app feedback from pilot users, read by the admin in /admin.
+model Feedback {
+  id         String   @id @default(cuid())
+  userId     String?
+  userEmail  String?
+  businessId String?
+  path       String?
+  kind       String // idea | problem | praise
+  message    String
+  status     String   @default("new") // new | read
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
 }

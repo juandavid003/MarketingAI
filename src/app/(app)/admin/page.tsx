@@ -5,8 +5,10 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { Users } from "lucide-react";
-import { setClientEnabled } from "./actions";
+import { Users, MessageSquare, ShieldCheck } from "lucide-react";
+import { AUDIT_LABEL } from "@/lib/audit";
+import { LocalTime } from "@/components/LocalTime";
+import { setClientEnabled, markFeedbackRead } from "./actions";
 
 export default async function AdminPage() {
   await requireAdmin();
@@ -23,6 +25,11 @@ export default async function AdminPage() {
     },
     orderBy: { createdAt: "desc" },
   });
+  const [feedback, events] = await Promise.all([
+    prisma.feedback.findMany({ orderBy: { createdAt: "desc" }, take: 50 }),
+    prisma.auditEvent.findMany({ orderBy: { createdAt: "desc" }, take: 40 }),
+  ]);
+  const KIND_LABEL: Record<string, string> = { idea: "Idea", problem: "Problema", praise: "Le gustó" };
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
@@ -66,6 +73,64 @@ export default async function AdminPage() {
             </Card>
           ))}
         </div>
+      )}
+
+      <h2 className="mt-12 flex items-center gap-2 text-lg font-semibold">
+        <MessageSquare className="size-5" /> Comentarios de los clientes
+      </h2>
+      {feedback.length === 0 ? (
+        <p className="mt-2 text-sm text-muted">Todavía no hay comentarios.</p>
+      ) : (
+        <ul className="mt-3 space-y-2">
+          {feedback.map((f) => (
+            <Card key={f.id} className="p-3 text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="flex items-center gap-2">
+                  <Badge tone={f.kind === "problem" ? "danger" : f.kind === "praise" ? "success" : "brand"}>
+                    {KIND_LABEL[f.kind] ?? f.kind}
+                  </Badge>
+                  {f.status === "new" && <Badge tone="warning">Nuevo</Badge>}
+                  <span className="text-muted">{f.userEmail}</span>
+                </span>
+                <span className="text-xs text-faint">
+                  <LocalTime iso={f.createdAt.toISOString()} />
+                </span>
+              </div>
+              <p className="mt-2 whitespace-pre-wrap">{f.message}</p>
+              <div className="mt-1 flex items-center justify-between gap-2 text-xs text-faint">
+                <span>{f.path}</span>
+                {f.status === "new" && (
+                  <form action={markFeedbackRead.bind(null, f.id)}>
+                    <button type="submit" className="text-brand hover:underline">
+                      Marcar como leído
+                    </button>
+                  </form>
+                )}
+              </div>
+            </Card>
+          ))}
+        </ul>
+      )}
+
+      <h2 className="mt-12 flex items-center gap-2 text-lg font-semibold">
+        <ShieldCheck className="size-5" /> Actividad sensible (todas las cuentas)
+      </h2>
+      {events.length === 0 ? (
+        <p className="mt-2 text-sm text-muted">Sin actividad registrada todavía.</p>
+      ) : (
+        <ul className="mt-3 divide-y divide-border text-sm">
+          {events.map((e) => (
+            <li key={e.id} className="flex flex-wrap justify-between gap-2 py-2">
+              <span>
+                {AUDIT_LABEL[e.action] ?? e.action}
+                <span className="text-muted"> · {e.actorEmail ?? "sistema"}</span>
+              </span>
+              <span className="text-xs text-faint">
+                <LocalTime iso={e.createdAt.toISOString()} />
+              </span>
+            </li>
+          ))}
+        </ul>
       )}
     </main>
   );
