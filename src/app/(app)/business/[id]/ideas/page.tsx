@@ -1,11 +1,14 @@
 import Link from "next/link";
-import { Brain, Target, Eye, Megaphone } from "lucide-react";
+import { Brain, Target, Eye, Megaphone, CalendarDays } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireBusinessAccess } from "@/lib/dal";
 import { getPageActivity } from "@/lib/pageActivity";
 import { generateRealInsights } from "@/lib/realInsights";
+import { detectCountry, COUNTRY_NAME } from "@/lib/adLibrary";
+import { upcomingSeasonal, seasonalCampaignGoal } from "@/lib/seasonal";
+import { createCampaignFromObjective } from "../actions";
 import { Badge } from "@/components/ui/Badge";
-import { LinkButton } from "@/components/ui/Button";
+import { Button, LinkButton } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Notice, Section, GoalCampaignForm, InsightCard, CompetitorSummary } from "@/components/business/sections";
@@ -38,6 +41,8 @@ export default async function IdeasPage({
   const activity = connection ? await getPageActivity(connection.pages) : [];
   const insights = generateRealInsights(activity, products);
   const aiConfigured = business.aiProvider != null;
+  const country = detectCountry(business.location);
+  const seasonal = upcomingSeasonal(country.code, business.location);
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-10">
@@ -54,6 +59,54 @@ export default async function IdeasPage({
           Dile a la IA tu objetivo y te propone una campaña completa: concepto, oferta, piezas y CTA.
         </p>
         <GoalCampaignForm businessId={id} aiConfigured={aiConfigured} />
+      </Section>
+
+      <Section icon={CalendarDays} title="Fechas que vienen" className="mt-10">
+        <p className="text-sm text-muted">
+          Fechas comerciales y feriados de {COUNTRY_NAME[country.code] ?? country.code} en los próximos
+          meses, con cuándo empezar a preparar el contenido.
+          {!country.matched &&
+            " No reconocimos el país en tu ubicación; usamos Ecuador. Corrígelo en Perfil si no es así."}
+        </p>
+        {seasonal.length === 0 ? (
+          <p className="mt-3 text-sm text-muted">No hay fechas importantes en las próximas semanas.</p>
+        ) : (
+          <ul className="mt-3 divide-y divide-border">
+            {seasonal.map((e) => (
+              <li key={e.key + e.date.toISOString()} className="flex flex-wrap items-start justify-between gap-3 py-3">
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium">
+                    {e.name}{" "}
+                    <span className="text-sm font-normal text-muted">
+                      · {e.date.toLocaleDateString("es", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" })}
+                      {" · "}
+                      {e.daysUntil === 0 ? "hoy" : `en ${e.daysUntil} días`}
+                    </span>
+                  </p>
+                  <p className="mt-0.5 text-sm text-muted">{e.angle}</p>
+                  <p className="mt-0.5 text-xs">
+                    {e.status === "prepare_now" ? (
+                      <Badge tone="warning">Prepáralo ya</Badge>
+                    ) : (
+                      <span className="text-faint">
+                        Empieza a preparar desde el{" "}
+                        {e.prepareFrom.toLocaleDateString("es", { day: "numeric", month: "long", timeZone: "UTC" })}
+                      </span>
+                    )}
+                  </p>
+                </div>
+                {aiConfigured && (
+                  <form action={createCampaignFromObjective.bind(null, id)}>
+                    <input type="hidden" name="goal" value={seasonalCampaignGoal(e)} />
+                    <Button type="submit" size="sm" variant="secondary">
+                      Crear campaña
+                    </Button>
+                  </form>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
       </Section>
 
       <Section

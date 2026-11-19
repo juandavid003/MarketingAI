@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { ExternalLink, RefreshCw, Sparkles, Eye, Info, Lightbulb } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireBusinessAccess } from "@/lib/dal";
-import { guessCountryCode, adLibraryWebUrl } from "@/lib/adLibrary";
+import { detectCountry, adLibraryWebUrl, adLibraryCoverage } from "@/lib/adLibrary";
 import { competitorStats, formatLabel, interactions } from "@/lib/competitorStats";
 import { purposeLabel, type GeneratedCompetitorIdeas } from "@/lib/contentAi";
 import type { CompetitorPost } from "@/generated/prisma/client";
@@ -50,7 +50,9 @@ export default async function CompetitorsPage({
   if (!business) notFound();
 
   const hasOwnInstagram = business.socialConnection?.pages.some((p) => p.instagramAccountId) ?? false;
-  const countryCode = guessCountryCode(business.location);
+  const country = detectCountry(business.location);
+  const countryCode = country.code;
+  const adCoverage = adLibraryCoverage(countryCode);
   const postById = new Map(
     business.competitors.flatMap((c) => c.posts.map((p) => [p.id, { post: p, competitor: c }] as const))
   );
@@ -102,8 +104,15 @@ export default async function CompetitorsPage({
             competencia. Registra a mano las publicaciones que te llamen la atención.
           </li>
           <li>
-            <strong>Anuncios:</strong> enlazamos a la Biblioteca de anuncios pública de Meta para
-            cada competidor.
+            <strong>Anuncios ({adCoverage.countryName}):</strong> enlazamos a la Biblioteca de
+            anuncios pública de Meta, filtrada por {adCoverage.countryName}, donde ves los anuncios
+            activos de cada competidor.{" "}
+            {adCoverage.apiCoversCommercialAds
+              ? "En la Unión Europea Meta también ofrece estos anuncios por API; lo activaremos cuando aprueben nuestro acceso."
+              : `Fuera de la Unión Europea, la API de Meta solo entrega anuncios políticos o de temas sociales, no los comerciales; por eso no podemos traer aquí los anuncios de tu competencia en ${adCoverage.countryName} ni sus resultados (Meta no publica alcance ni gasto de anuncios comerciales).`}
+            {!country.matched &&
+              " No reconocimos el país en tu ubicación del Perfil; usamos Ecuador."}
+            {" "}La búsqueda es por nombre: si no aparece, prueba con el nombre exacto de su página de Facebook.
           </li>
         </ul>
         <p className="mt-2 text-xs text-faint">Nunca usamos scraping ni accedemos a datos privados.</p>

@@ -41,12 +41,54 @@ const COUNTRY_CODE_BY_KEYWORD: Record<string, string> = {
   spain: "ES",
 };
 
-export function guessCountryCode(location: string): string {
+export const COUNTRY_NAME: Record<string, string> = {
+  EC: "Ecuador",
+  MX: "México",
+  CO: "Colombia",
+  PE: "Perú",
+  CL: "Chile",
+  AR: "Argentina",
+  US: "Estados Unidos",
+  ES: "España",
+};
+
+// `matched` is false when nothing in the location named a known country and
+// we fell back to EC — the UI says so instead of presenting it as a fact.
+export function detectCountry(location: string): { code: string; matched: boolean } {
   const lower = location.toLowerCase();
   for (const [keyword, code] of Object.entries(COUNTRY_CODE_BY_KEYWORD)) {
-    if (lower.includes(keyword)) return code;
+    if (lower.includes(keyword)) return { code, matched: true };
   }
-  return "EC";
+  return { code: "EC", matched: false };
+}
+
+export function guessCountryCode(location: string): string {
+  return detectCountry(location).code;
+}
+
+// What the Ad Library API can return depends on where the ads are delivered
+// (Meta's Ad Library API docs): ads about social issues, elections or
+// politics anywhere, but ALL other (commercial) ads only when they reach the
+// EU. So for a competitor in Ecuador or Mexico the API can never list their
+// product ads — only the public web library shows those. We link to the web
+// library for every country and say plainly what the API would cover.
+const EU_COUNTRIES = new Set([
+  "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE",
+  "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE",
+]);
+
+export type AdLibraryCoverage = {
+  countryCode: string;
+  countryName: string;
+  apiCoversCommercialAds: boolean;
+};
+
+export function adLibraryCoverage(countryCode: string): AdLibraryCoverage {
+  return {
+    countryCode,
+    countryName: COUNTRY_NAME[countryCode] ?? countryCode,
+    apiCoversCommercialAds: EU_COUNTRIES.has(countryCode),
+  };
 }
 
 // Public Ad Library web page for a search term — what the business owner can

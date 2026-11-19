@@ -74,7 +74,11 @@ Pedido del fundador: separar la app en módulos al lado del selector de negocio,
 | Paquete de exportación (TikTok / YouTube / manual) + "marcar como publicado" | S |
 | Versiones 1:1 y 4:5, colores de marca en subtítulos, logo | M |
 
-## Sprint 5 — Competencia y tendencias con evidencia
+## Sprint 5 — Competencia y tendencias con evidencia ✅ 2026-11-19
+- Business Discovery (frecuencia, formatos, engagement, captions) y patrones de hook/tema/formato/CTA extraídos por IA **de captions reales** con enlace a cada fuente ya estaban (`lib/competitorDiscovery.ts`, `lib/competitorStats.ts`, `lib/contentAi.ts`).
+- Ad Library: Competencia explica por país qué se puede ver (`adLibraryCoverage` en `lib/adLibrary.ts`): fuera de la UE la API solo entrega anuncios políticos/sociales, así que enlazamos a la biblioteca web filtrada por país. Avisa si el país de la ubicación no se reconoció.
+- **Fechas que vienen** en Generador de ideas (`lib/seasonal.ts`): fechas comerciales y feriados por país (EC, MX, CO, PE, CL, AR, US, ES) + fiestas de Quito, Guayaquil y Cuenca, con "prepáralo ya"/"desde el…" según la anticipación de cada fecha y botón para crear la campaña.
+
 | Tarea | Complejidad |
 |---|---|
 | Competidores con usuario de Instagram → Business Discovery (frecuencia, formatos, engagement, captions) | M |
