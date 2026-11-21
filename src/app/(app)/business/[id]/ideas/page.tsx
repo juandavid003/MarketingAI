@@ -48,7 +48,7 @@ export default async function IdeasPage({
     <main className="mx-auto max-w-3xl px-6 py-10">
       <PageHeader
         eyebrow={business.name}
-        title="Generador de ideas"
+        title="Ideas y campañas"
         description="De dónde salen tus próximos contenidos: lo que muestran tus datos, lo que le funciona a tu competencia y lo que quieres lograr."
       />
 

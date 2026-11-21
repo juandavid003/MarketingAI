@@ -1,6 +1,6 @@
 # Hoja de ruta
 
-> Última actualización: 2026-11-16. Sprints de ~1 semana para un fundador que trabaja solo. Complejidad: S (≤1 día) · M (2–3 días) · L (≈1 semana).
+> Última actualización: 2026-11-21. Sprints de ~1 semana para un fundador que trabaja solo. Complejidad: S (≤1 día) · M (2–3 días) · L (≈1 semana).
 
 ## Sprint 0 — Alineación ✅
 - Congelar la pauta (`FEATURE_ADS`), dejar de pedir `ads_management`.
@@ -107,12 +107,19 @@ Pedido del fundador: separar la app en módulos al lado del selector de negocio,
 - La IA solo puede usar esos datos y debe citarlos; `parseAnswer` convierte las citas en enlaces, lista las fuentes debajo de cada respuesta y **marca** citas inexistentes o cifras que no están en los datos.
 - La respuesta guarda los datos que vio, así sus citas siguen siendo válidas aunque los números cambien. Conversación por persona y negocio, límite de 40 preguntas cada 24 h. La IA no recibe datos de contacto de los leads.
 
+## Limpieza de módulos + video con IA ✅ 2026-11-21
+Pedido del fundador: quitar funciones repetidas entre módulos, UI/UX más simple, y video con IA que se pueda cambiar de proveedor.
+- **Barra lateral de 15 a 7 entradas**, con pestañas dentro de cada módulo (`src/components/business/modules.ts`): Resumen · **Ideas** (ideas y campañas, competencia) · **Contenido** (guiones, creativos, videos) · **Calendario** (calendario, publicaciones) · **Resultados** (resultados, leads, enlaces y códigos) · **Asistente** · **Negocio** (perfil, IA, conexiones, equipo; las del dueño ocultas para el encargado). Las URLs no cambiaron.
+- Quitado lo repetido: un solo `Notice` para avisos (había copias locales), un solo `AiRequired` para "configura tu IA" (4 variantes), un helper para el redirect por falta de IA (4 copias); Configuración ahora muestra el motivo del redirect (antes se perdía). *Creativos* ya no repite la lista de guiones: muestra solo videos listos para multiplicar.
+- **Video con IA por escena** con proveedores intercambiables (Gemini Omni Flash, fal.ai con Kling/Seedance), modelo editable por negocio o por variable de entorno. Ver [`AI_VIDEO.md`](AI_VIDEO.md).
+- Skills de Claude Code para video (fal.ai y Remotion) en `.claude/skills/`.
+
 ## Después del MVP
 - TikTok / YouTube directos (tras auditoría/cuotas).
 - Reactivar pauta (tras revisión de negocio).
 - Pasarela de pago y planes.
 - Worker separado + cola en Postgres; almacenamiento en R2.
-- Generación de B-roll con IA.
+- Imagen → video (animar fotos de producto) sobre la misma capa `lib/videoGen`.
 
 ## Dependencias externas (largas — empezar ya)
 1. **Business Verification de Meta** (días–semanas).

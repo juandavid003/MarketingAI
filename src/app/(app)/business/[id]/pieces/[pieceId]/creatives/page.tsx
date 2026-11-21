@@ -33,6 +33,7 @@ import {
 } from "../../../distribution-actions";
 import { addStrategyToCalendar } from "../../../calendar-actions";
 import { TakeUploadForm } from "../TakeUploadForm";
+import { Notice } from "@/components/ui/Notice";
 
 export default async function CreativesPage({
   params,
@@ -90,9 +91,9 @@ export default async function CreativesPage({
       />
 
       {error && (
-        <p className="mb-4 rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+        <Notice tone="danger" className="mb-4">
           {error}
-        </p>
+        </Notice>
       )}
 
       {!strategy ? (
@@ -352,7 +353,7 @@ function StrategyView({
           className="mt-3 flex flex-wrap items-end gap-2 rounded-md border border-border p-3 text-sm"
         >
           <label className="space-y-1">
-            <span className="block font-medium">Enviar al Manager de contenido desde el</span>
+            <span className="block font-medium">Enviar al Calendario desde el</span>
             <Input name="start" type="date" required defaultValue={new Date().toISOString().slice(0, 10)} className="w-auto" />
           </label>
           <Button type="submit" size="sm" variant="secondary">

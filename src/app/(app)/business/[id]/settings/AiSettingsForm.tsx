@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { saveAiSettings, saveGeminiKey, type AiSettingsState } from "../actions";
 import { Input, Label } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
+import { Notice } from "@/components/ui/Notice";
 
 const initialState: AiSettingsState = {};
 
@@ -67,20 +68,20 @@ export default function AiSettingsForm({ businessId }: { businessId: string }) {
       </div>
 
       {state.error && (
-        <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+        <Notice tone="danger">
           {state.error}
-        </p>
+        </Notice>
       )}
       {state.success && (
-        <p className="rounded-md bg-green-50 px-4 py-3 text-sm text-green-700 dark:bg-green-950 dark:text-green-300">
+        <Notice tone="success">
           Guardado correctamente.
-        </p>
+        </Notice>
       )}
 
       {state.warning && (
-        <p className="rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+        <Notice tone="warning">
           {state.warning}
-        </p>
+        </Notice>
       )}
 
       <Button type="submit" disabled={pending}>

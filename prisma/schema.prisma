@@ -68,6 +68,15 @@ model Business {
   // Brand logo (storage key), overlaid on assembled videos.
   logoPath String?
 
+  // AI video generation for scenes the owner doesn't want to record
+  // (lib/videoGen). Provider id from VIDEO_PROVIDERS ("gemini" | "fal" | …),
+  // the client's own key, and an optional model override — so a new model or
+  // provider is a settings change, not a migration. For "gemini" the key may
+  // be empty and geminiApiKeyEncrypted is reused.
+  videoAiProvider     String?
+  videoAiKeyEncrypted String?
+  videoAiModel        String?
+
   // Sample business created for a new account (lib/demoBusiness.ts) — real
   // rows, clearly labeled; never connected to any social network.
   isDemo Boolean @default(false)
@@ -236,7 +245,7 @@ model SceneTake {
   originalPath     String // storage key
   durationSeconds  Float?
   hasAudio         Boolean?
-  status           String       @default("uploaded") // uploaded | processing | ready | error
+  status           String       @default("uploaded") // generating | uploaded | processing | ready | error
   transcript       String? // JSON Transcript (lib/whisper.ts)
   keepIntervals    String? // JSON [[start, end], ...] after removing silences
   review           String? // JSON TakeReview (lib/takeReview.ts)
@@ -244,6 +253,11 @@ model SceneTake {
   // "main" = the script take; "hook:H2" = an alternative opening recorded
   // for hook H2 of the distribution plan (always scene 1).
   slot             String       @default("main")
+  // "upload" = recorded by the owner; "ai" = generated (status starts at
+  // "generating", then follows the normal uploaded → processing → ready).
+  source           String       @default("upload")
+  aiPrompt         String?
+  aiModel          String? // "<provider>:<model>" that produced it
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @default(now()) @updatedAt
 

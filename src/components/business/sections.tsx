@@ -18,15 +18,22 @@ import { createPieceFromBrief } from "@/app/(app)/business/[id]/content-actions"
 import { connectAdAccount } from "@/app/(app)/business/[id]/ads-actions";
 
 // Building blocks shared by the business module pages (Resumen, Ideas,
-// Copywriter, Conexiones, Resultados).
+// Contenido, Calendario, Negocio, Resultados).
 
-export function Notice({ tone, children }: { tone: "success" | "danger"; children: React.ReactNode }) {
-  const toneClasses =
-    tone === "success"
-      ? "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300"
-      : "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300";
-  return <p className={`rounded-md px-4 py-3 text-sm ${toneClasses}`}>{children}</p>;
+// Shown wherever a feature needs the business's own AI key and it isn't set.
+// One wording and one destination instead of a variant per page.
+export function AiRequired({ businessId, what, className }: { businessId: string; what: string; className?: string }) {
+  return (
+    <Link
+      href={`/business/${businessId}/settings`}
+      className={`inline-block text-sm text-brand hover:underline ${className ?? ""}`}
+    >
+      Configura tu IA para {what} →
+    </Link>
+  );
 }
+
+export { Notice } from "@/components/ui/Notice";
 
 export function Section({
   icon: Icon,
@@ -70,13 +77,7 @@ export function GoalCampaignForm({
   businessId: string;
   aiConfigured: boolean;
 }) {
-  if (!aiConfigured) {
-    return (
-      <Link href={`/business/${businessId}/settings`} className="inline-block text-sm text-brand hover:underline">
-        Configura tu IA para usar esta función →
-      </Link>
-    );
-  }
+  if (!aiConfigured) return <AiRequired businessId={businessId} what="crear campañas" />;
 
   return (
     <form action={createCampaignFromObjective.bind(null, businessId)} className="space-y-3">
@@ -279,13 +280,7 @@ export function CompetitorSummary({
 }
 
 export function PieceBriefForm({ businessId, aiConfigured }: { businessId: string; aiConfigured: boolean }) {
-  if (!aiConfigured) {
-    return (
-      <Link href={`/business/${businessId}/settings`} className="mt-3 inline-block text-sm text-brand hover:underline">
-        Configura tu IA para generar guiones →
-      </Link>
-    );
-  }
+  if (!aiConfigured) return <AiRequired businessId={businessId} what="generar guiones" className="mt-3" />;
   return (
     <form action={createPieceFromBrief.bind(null, businessId)} className="mt-3 space-y-3">
       <Textarea
@@ -441,9 +436,7 @@ export function InsightCard({
             </Button>
           </form>
         ) : (
-          <LinkButton href={`/business/${businessId}/settings`} variant="secondary" size="sm" className="mt-3">
-            Configura tu IA para generar
-          </LinkButton>
+          <AiRequired businessId={businessId} what="generar esta campaña" className="mt-3" />
         ))}
     </Card>
   );

@@ -226,13 +226,7 @@ export async function createCampaign(
     redirect("/");
   }
 
-  if (!business.aiProvider || !business.aiApiKeyEncrypted) {
-    redirect(
-      `/business/${businessId}/settings?campaign_error=${encodeURIComponent(
-        "Configura tu proveedor de IA antes de crear una campaña."
-      )}`
-    );
-  }
+  assertAiConfigured(businessId, business, "crear una campaña");
 
   let campaignId: string;
 
@@ -288,13 +282,7 @@ export async function createCampaignFromObjective(businessId: string, formData: 
     redirect("/");
   }
 
-  if (!business.aiProvider || !business.aiApiKeyEncrypted) {
-    redirect(
-      `/business/${businessId}/settings?campaign_error=${encodeURIComponent(
-        "Configura tu proveedor de IA antes de crear una campaña."
-      )}`
-    );
-  }
+  assertAiConfigured(businessId, business, "crear una campaña");
 
   let campaignId: string;
 
@@ -344,13 +332,7 @@ export async function createStoryboard(
     redirect(`/business/${businessId}`);
   }
 
-  if (!business.aiProvider || !business.aiApiKeyEncrypted) {
-    redirect(
-      `/business/${businessId}/settings?campaign_error=${encodeURIComponent(
-        "Configura tu proveedor de IA antes de generar un guion."
-      )}`
-    );
-  }
+  assertAiConfigured(businessId, business, "generar un guion");
 
   let campaignContent: GeneratedCampaign;
   try {
@@ -424,13 +406,7 @@ export async function createCampaignImage(
     redirect(`/business/${businessId}`);
   }
 
-  if (!business.aiProvider || !business.aiApiKeyEncrypted) {
-    redirect(
-      `/business/${businessId}/settings?campaign_error=${encodeURIComponent(
-        "Configura tu proveedor de IA antes de generar una imagen."
-      )}`
-    );
-  }
+  assertAiConfigured(businessId, business, "generar una imagen");
 
   // Real AI image generation (GPT Image) requires OpenAI specifically. When
   // no OpenAI image key is configured, fall back to a local text-on-background
@@ -607,3 +583,15 @@ export async function publishCampaignImage(
 }
 
 // Competitor actions live in competitor-actions.ts.
+
+// Features that need the business's own AI key send the owner to Settings,
+// where the reason is shown (?error=).
+function assertAiConfigured<B extends { aiProvider: string | null; aiApiKeyEncrypted: string | null }>(
+  businessId: string,
+  business: B,
+  what: string
+): asserts business is B & { aiProvider: string; aiApiKeyEncrypted: string } {
+  if (!business.aiProvider || !business.aiApiKeyEncrypted) {
+    redirect(`/business/${businessId}/settings?error=${encodeURIComponent(`Configura tu proveedor de IA antes de ${what}.`)}`);
+  }
+}

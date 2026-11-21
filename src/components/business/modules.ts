@@ -1,42 +1,51 @@
 import {
   LayoutDashboard,
   Lightbulb,
-  PenLine,
-  Share2,
-  CalendarDays,
   Clapperboard,
-  Link2,
-  UserRoundCheck,
+  CalendarDays,
   BarChart3,
-  Building2,
-  Plug,
-  Bot,
-  Send,
-  UsersRound,
   Sparkles,
+  Building2,
   type LucideIcon,
 } from "lucide-react";
 
-// The app is organized in modules, always inside the business selected in
-// the sidebar. Each module owns a route under /business/[id]/<path>; `owns`
-// lists the other first segments that belong to it (detail pages).
+// The app is organized in a few modules, always inside the business selected
+// in the sidebar. A module groups related pages as tabs, so the sidebar stays
+// short and each job has one home:
+//
+//   Ideas       → ideas, competencia            (what to make)
+//   Contenido   → guiones, creativos, videos    (make it)
+//   Calendario  → calendario, publicaciones     (when and where it goes out)
+//   Resultados  → resultados, leads, enlaces    (what it brought)
+//   Asistente                                   (ask about all of it)
+//   Negocio     → perfil, IA, conexiones, equipo
+//
+// Each tab owns a route under /business/[id]/<path>; `owns` lists the other
+// first segments that belong to it (detail pages). URLs never changed when
+// modules were regrouped, so old links keep working.
+
+export type TabDef = {
+  key: string;
+  label: string;
+  path: string; // "" = the business overview
+  owns?: string[];
+  ownerOnly?: boolean; // hidden for managers (lib/access.ts)
+};
 
 export type ModuleDef = {
   key: string;
   label: string;
-  path: string; // "" = the business overview
   icon: LucideIcon;
   description: string;
-  owns?: string[];
-  ownerOnly?: boolean; // hidden for managers (lib/access.ts)
+  tabs: TabDef[];
 };
 
 export const OVERVIEW: ModuleDef = {
   key: "overview",
   label: "Resumen",
-  path: "",
   icon: LayoutDashboard,
   description: "Estado del negocio y próximos pasos.",
+  tabs: [{ key: "overview", label: "Resumen", path: "" }],
 };
 
 export const MODULE_GROUPS: { label: string; modules: ModuleDef[] }[] = [
@@ -45,47 +54,34 @@ export const MODULE_GROUPS: { label: string; modules: ModuleDef[] }[] = [
     modules: [
       {
         key: "ideas",
-        label: "Generador de ideas",
-        path: "ideas",
+        label: "Ideas",
         icon: Lightbulb,
-        description: "Oportunidades de tus datos, ideas basadas en la competencia y campañas desde un objetivo.",
-        owns: ["competitors", "campaigns"],
+        description: "Campañas desde un objetivo, fechas que vienen, oportunidades en tus datos y lo que le funciona a tu competencia.",
+        tabs: [
+          { key: "ideas", label: "Ideas y campañas", path: "ideas", owns: ["campaigns"] },
+          { key: "competitors", label: "Competencia", path: "competitors" },
+        ],
       },
       {
-        key: "copywriter",
-        label: "Copywriter",
-        path: "copywriter",
-        icon: PenLine,
-        description: "Guiones con hook, escenas, descripción y CTAs; grabas por escenas y armamos el video.",
-        owns: ["pieces"],
-      },
-      {
-        key: "distribution",
-        label: "Distribuidor de estrategia",
-        path: "distribution",
-        icon: Share2,
-        description: "Un video, varios creativos: hooks y CTAs alternativos y un plan para probarlos.",
+        key: "content",
+        label: "Contenido",
+        icon: Clapperboard,
+        description: "Guiones por escenas, grabados o generados con IA, armados en video y multiplicados en creativos.",
+        tabs: [
+          { key: "copywriter", label: "Guiones", path: "copywriter", owns: ["pieces"] },
+          { key: "distribution", label: "Creativos", path: "distribution" },
+          { key: "videos", label: "Videos", path: "videos" },
+        ],
       },
       {
         key: "calendar",
-        label: "Manager de contenido",
-        path: "calendar",
+        label: "Calendario",
         icon: CalendarDays,
-        description: "Calendario que combina reels, carruseles, historias y posts de todas tus campañas.",
-      },
-      {
-        key: "publishing",
-        label: "Publicaciones",
-        path: "publishing",
-        icon: Send,
-        description: "Publica o programa en Facebook e Instagram; recordatorio y paquete para TikTok y YouTube.",
-      },
-      {
-        key: "videos",
-        label: "Videos",
-        path: "videos",
-        icon: Clapperboard,
-        description: "Biblioteca de videos armados y editados, listos para descargar o publicar.",
+        description: "Qué sale cada día en cada red, y la cola de publicaciones a Facebook e Instagram.",
+        tabs: [
+          { key: "calendar", label: "Calendario", path: "calendar" },
+          { key: "publishing", label: "Publicaciones", path: "publishing" },
+        ],
       },
     ],
   },
@@ -93,61 +89,76 @@ export const MODULE_GROUPS: { label: string; modules: ModuleDef[] }[] = [
     label: "Medir",
     modules: [
       {
-        key: "links",
-        label: "Enlaces y códigos",
-        path: "links",
-        icon: Link2,
-        description: "Enlaces rastreables con QR y códigos promocionales para saber qué trae clientes.",
-      },
-      {
-        key: "leads",
-        label: "Leads",
-        path: "leads",
-        icon: UserRoundCheck,
-        description: "Clientes potenciales con su origen, estado y valor.",
-      },
-      {
         key: "results",
         label: "Resultados",
-        path: "results",
         icon: BarChart3,
-        description: "Resultados de negocio separados de las métricas de las redes.",
+        description: "Clientes y ventas separados de las métricas de las redes, con los leads y enlaces que los trajeron.",
+        tabs: [
+          { key: "results", label: "Resultados", path: "results" },
+          { key: "leads", label: "Leads", path: "leads" },
+          { key: "links", label: "Enlaces y códigos", path: "links" },
+        ],
       },
       {
         key: "assistant",
-        label: "Asistente de crecimiento",
-        path: "assistant",
+        label: "Asistente",
         icon: Sparkles,
         description: "Pregunta qué funciona y qué hacer; responde con tus datos y cita cada cifra.",
+        tabs: [{ key: "assistant", label: "Asistente", path: "assistant" }],
       },
     ],
   },
   {
     label: "Negocio",
     modules: [
-      { key: "profile", label: "Perfil", path: "profile", icon: Building2, description: "Lo que la IA sabe de tu negocio." },
-      { key: "connections", label: "Conexiones", path: "connections", icon: Plug, description: "Facebook e Instagram.", ownerOnly: true },
-      { key: "settings", label: "Inteligencia artificial", path: "settings", icon: Bot, description: "Tu proveedor y API keys.", ownerOnly: true },
-      { key: "team", label: "Equipo", path: "team", icon: UsersRound, description: "Invita a tu encargado de redes.", ownerOnly: true },
+      {
+        key: "business",
+        label: "Negocio",
+        icon: Building2,
+        description: "Perfil, IA, conexiones y equipo.",
+        tabs: [
+          { key: "profile", label: "Perfil", path: "profile" },
+          { key: "settings", label: "Inteligencia artificial", path: "settings", ownerOnly: true },
+          { key: "connections", label: "Conexiones", path: "connections", ownerOnly: true },
+          { key: "team", label: "Equipo", path: "team", ownerOnly: true },
+        ],
+      },
     ],
   },
 ];
 
 const ALL_MODULES = [OVERVIEW, ...MODULE_GROUPS.flatMap((g) => g.modules)];
 
-// Which module a pathname belongs to. /pieces/<id>/creatives is the
-// distributor's; the rest of /pieces is the copywriter's.
-export function activeModuleKey(pathname: string): string | null {
+export function visibleTabs(mod: ModuleDef, role: "owner" | "manager" | undefined): TabDef[] {
+  return mod.tabs.filter((t) => !t.ownerOnly || role === "owner");
+}
+
+// Which module and tab a pathname belongs to. /pieces/<id>/creatives is the
+// Creativos tab; the rest of /pieces is Guiones.
+export function activeLocation(pathname: string): { module: ModuleDef; tab: TabDef } | null {
   const m = pathname.match(/^\/business\/[^/]+(?:\/(.*))?$/);
   if (!m) return null;
   const rest = (m[1] ?? "").split("/").filter(Boolean);
-  if (rest.length === 0) return "overview";
-  if (rest[0] === "pieces" && rest[2] === "creatives") return "distribution";
-  const found = ALL_MODULES.find((mod) => mod.path === rest[0] || mod.owns?.includes(rest[0]));
-  return found?.key ?? null;
+  const segment = rest.length === 0 ? "" : rest[0] === "pieces" && rest[2] === "creatives" ? "distribution" : rest[0];
+  for (const mod of ALL_MODULES) {
+    const tab = mod.tabs.find((t) => t.path === segment || t.owns?.includes(segment));
+    if (tab) return { module: mod, tab };
+  }
+  return null;
 }
 
-export function moduleHref(businessId: string, key: string | null): string {
-  const mod = ALL_MODULES.find((m) => m.key === key) ?? OVERVIEW;
-  return mod.path ? `/business/${businessId}/${mod.path}` : `/business/${businessId}`;
+export function tabHref(businessId: string, tab: TabDef): string {
+  return tab.path ? `/business/${businessId}/${tab.path}` : `/business/${businessId}`;
+}
+
+// A module's landing page is its first tab the role can see.
+export function moduleHref(businessId: string, mod: ModuleDef, role?: "owner" | "manager"): string {
+  return tabHref(businessId, visibleTabs(mod, role)[0] ?? mod.tabs[0]);
+}
+
+// Same tab in another business (used by the business switcher); falls back
+// to the module's first tab, then to the overview.
+export function sameTabHref(businessId: string, tab: TabDef | null, role?: "owner" | "manager"): string {
+  if (!tab || (tab.ownerOnly && role !== "owner")) return `/business/${businessId}`;
+  return tabHref(businessId, tab);
 }

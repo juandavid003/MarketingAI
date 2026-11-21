@@ -19,16 +19,22 @@ export default async function DistributionPage({ params }: { params: Promise<{ i
   const pieces = await prisma.contentPiece.findMany({
     where: { businessId: id },
     orderBy: { createdAt: "desc" },
-    include: { variants: { include: { _count: { select: { results: true } } } } },
+    include: {
+      variants: { include: { _count: { select: { results: true } } } },
+      _count: { select: { videoAssets: { where: { variantCode: null } } } },
+    },
   });
   const withPlan = pieces.filter((p) => p.strategy);
-  const withoutPlan = pieces.filter((p) => !p.strategy);
+  // Creatives reuse a recorded video, so only scripts with one are offered
+  // here; the rest live in Guiones until they're recorded.
+  const readyWithoutPlan = pieces.filter((p) => !p.strategy && p._count.videoAssets > 0);
+  const notRecorded = pieces.filter((p) => !p.strategy && p._count.videoAssets === 0).length;
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-10">
       <PageHeader
         eyebrow={business.name}
-        title="Distribuidor de estrategia"
+        title="Creativos"
         description="Saca varios creativos de cada video cambiando solo el hook y la llamada a la acción, y publícalos con un plan para descubrir cuál funciona mejor."
       />
 
@@ -37,7 +43,7 @@ export default async function DistributionPage({ params }: { params: Promise<{ i
         genera los creativos con lo que ya grabaste y registra sus resultados. Fase 1 elige el mejor hook; fase 2,
         el mejor CTA. Puedes enviar el plan al{" "}
         <Link href={`/business/${id}/calendar`} className="text-brand hover:underline">
-          Manager de contenido
+          Calendario
         </Link>
         .
       </Card>
@@ -70,7 +76,7 @@ export default async function DistributionPage({ params }: { params: Promise<{ i
         </ul>
       )}
 
-      <h2 className="mt-10 text-lg font-semibold">Guiones sin plan</h2>
+      <h2 className="mt-10 text-lg font-semibold">Videos listos para multiplicar</h2>
       {pieces.length === 0 ? (
         <div className="mt-3">
           <EmptyState
@@ -78,16 +84,20 @@ export default async function DistributionPage({ params }: { params: Promise<{ i
             title="Primero necesitas un guion"
             action={
               <LinkButton href={`/business/${id}/copywriter`} size="sm">
-                Ir al Copywriter
+                Ir a Guiones
               </LinkButton>
             }
           />
         </div>
-      ) : withoutPlan.length === 0 ? (
-        <p className="mt-2 text-sm text-muted">Todos tus guiones tienen plan.</p>
+      ) : readyWithoutPlan.length === 0 ? (
+        <p className="mt-2 text-sm text-muted">
+          {notRecorded > 0
+            ? "Ningún video armado sin plan. Arma el video de un guion y aparecerá aquí."
+            : "Todos tus videos tienen plan."}
+        </p>
       ) : (
         <ul className="mt-3 divide-y divide-border">
-          {withoutPlan.map((piece) => (
+          {readyWithoutPlan.map((piece) => (
             <li key={piece.id} className="flex items-center justify-between gap-3 py-3">
               <span className="min-w-0 truncate font-medium">“{piece.hook}”</span>
               <LinkButton href={`/business/${id}/pieces/${piece.id}/creatives`} variant="secondary" size="sm" className="shrink-0">
@@ -96,6 +106,14 @@ export default async function DistributionPage({ params }: { params: Promise<{ i
             </li>
           ))}
         </ul>
+      )}
+      {notRecorded > 0 && (
+        <p className="mt-4 text-sm text-muted">
+          {notRecorded === 1 ? "1 guion aún no tiene video" : `${notRecorded} guiones aún no tienen video`}.{" "}
+          <Link href={`/business/${id}/copywriter`} className="text-brand hover:underline">
+            Grábalos o genéralos con IA en Guiones →
+          </Link>
+        </p>
       )}
     </main>
   );

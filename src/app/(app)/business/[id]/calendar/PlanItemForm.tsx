@@ -112,7 +112,7 @@ export function PlanItemForm({
             ))}
           </Select>
         </F>
-        <F label="Guion (Copywriter)">
+        <F label="Guion">
           <Select name="contentPieceId" defaultValue={item?.contentPieceId ?? ""}>
             <option value="">Ninguno</option>
             {options.pieces.map((p) => (

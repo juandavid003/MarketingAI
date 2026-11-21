@@ -16,6 +16,8 @@ export type AuditAction =
   | "image_key.cleared"
   | "gemini_key.updated"
   | "gemini_key.cleared"
+  | "video_ai.updated"
+  | "video_ai.cleared"
   | "meta.connected"
   | "meta.disconnected"
   | "publish.now"

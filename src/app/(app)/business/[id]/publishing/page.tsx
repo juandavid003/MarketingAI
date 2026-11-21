@@ -104,7 +104,7 @@ export default async function PublishingPage({
           <p className="mt-2 text-sm text-muted">
             Todavía no tienes videos listos. Ármalos desde el{" "}
             <Link href={`/business/${id}/copywriter`} className="text-brand hover:underline">
-              Copywriter
+              Guiones
             </Link>
             .
           </p>

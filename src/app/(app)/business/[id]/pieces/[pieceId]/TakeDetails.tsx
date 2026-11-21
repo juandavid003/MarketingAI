@@ -1,4 +1,4 @@
-import { CheckCircle2, AlertTriangle, Loader2, Eye } from "lucide-react";
+import { CheckCircle2, AlertTriangle, Loader2, Eye, Wand2 } from "lucide-react";
 import { fileUrl } from "@/lib/storage";
 import { parseReview } from "@/lib/takeReview";
 import { isTakeStalled } from "@/lib/jobs/processTake";
@@ -20,6 +20,8 @@ export function TakeDetails({
     id: string;
     originalPath: string;
     status: string;
+    source: string;
+    aiModel: string | null;
     errorMessage: string | null;
     review: string | null;
     updatedAt: Date;
@@ -28,19 +30,34 @@ export function TakeDetails({
 }) {
   const review = parseReview(take.review);
   const stalled = isTakeStalled(take);
+  const generating = take.status === "generating" && !stalled;
   const busy = ["uploaded", "processing"].includes(take.status) && !stalled;
 
   return (
     <div className="flex flex-wrap items-start gap-3">
-      <video src={fileUrl(take.originalPath)} controls preload="metadata" className="w-28 rounded-md border border-border" />
+      {take.status !== "generating" && !(take.source === "ai" && take.status === "error") && (
+        <video src={fileUrl(take.originalPath)} controls preload="metadata" className="w-28 rounded-md border border-border" />
+      )}
       <div className="min-w-0 flex-1 space-y-1.5 text-sm">
+        {take.source === "ai" && (
+          <Badge tone="brand">
+            <Wand2 className="size-3" /> Generada con IA{take.aiModel ? ` · ${take.aiModel.split(":").slice(1).join(":")}` : ""}
+          </Badge>
+        )}
+        {generating && (
+          <Badge tone="warning">
+            <Loader2 className="size-3 animate-spin" /> Generando con IA... puede tardar unos minutos
+          </Badge>
+        )}
         {busy && (
           <Badge tone="warning">
             <Loader2 className="size-3 animate-spin" /> Revisando la toma...
           </Badge>
         )}
         {take.status === "error" && <p className="text-red-700 dark:text-red-400">No se pudo procesar: {take.errorMessage}</p>}
-        {stalled && <p className="text-muted">La revisión se interrumpió.</p>}
+        {stalled && (
+          <p className="text-muted">{take.status === "generating" ? "La generación se interrumpió." : "La revisión se interrumpió."}</p>
+        )}
         {(take.status === "error" || stalled) && (
           <form action={retryTake.bind(null, businessId, pieceId, take.id)}>
             <Button type="submit" size="sm" variant="secondary">

@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { uploadAndProcessVideo, type UploadVideoState } from "../../video-actions";
 import { Button } from "@/components/ui/Button";
+import { Notice } from "@/components/ui/Notice";
 
 const initialState: UploadVideoState = {};
 
@@ -29,16 +30,16 @@ export default function UploadVideoForm({ businessId }: { businessId: string }) 
       </div>
 
       {state.error && (
-        <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+        <Notice tone="danger">
           {state.error}
-        </p>
+        </Notice>
       )}
 
       {pending && (
-        <p className="rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+        <Notice tone="warning">
           Subiendo tu video — no cierres esta pestaña hasta que termine la subida. La edición
           con IA sigue después en segundo plano.
-        </p>
+        </Notice>
       )}
 
       <Button type="submit" disabled={pending}>

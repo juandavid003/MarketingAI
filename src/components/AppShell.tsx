@@ -5,7 +5,16 @@ import { usePathname, useRouter } from "next/navigation";
 import { Users, LogOut, Plus, Menu, X, ChevronsUpDown } from "lucide-react";
 import { useEffect, useState } from "react";
 import { authClient } from "@/lib/auth-client";
-import { MODULE_GROUPS, OVERVIEW, activeModuleKey, moduleHref, type ModuleDef } from "@/components/business/modules";
+import {
+  MODULE_GROUPS,
+  OVERVIEW,
+  activeLocation,
+  moduleHref,
+  sameTabHref,
+  tabHref,
+  visibleTabs,
+  type ModuleDef,
+} from "@/components/business/modules";
 import { FeedbackButton } from "@/components/FeedbackButton";
 
 type BusinessSummary = { id: string; name: string; industry: string; isDemo: boolean; role: "owner" | "manager" };
@@ -32,7 +41,10 @@ export function AppShell({
 
   const currentBusinessId = pathname.match(/^\/business\/([^/]+)/)?.[1] ?? null;
   const current = businesses.find((b) => b.id === currentBusinessId) ?? null;
-  const activeKey = activeModuleKey(pathname);
+  const location = activeLocation(pathname);
+  const activeKey = location?.module.key ?? null;
+  const role = current?.role;
+  const tabs = location && currentBusinessId ? visibleTabs(location.module, role) : [];
 
   useEffect(() => {
     if (currentBusinessId) {
@@ -86,7 +98,10 @@ export function AppShell({
                   value={currentBusinessId ?? ""}
                   onChange={(e) => {
                     // Stay in the same module when switching business.
-                    if (e.target.value) router.push(moduleHref(e.target.value, activeKey));
+                    if (e.target.value) {
+                      const target = businesses.find((b) => b.id === e.target.value);
+                      router.push(sameTabHref(e.target.value, location?.tab ?? null, target?.role));
+                    }
                   }}
                   className="w-full appearance-none rounded-md border border-border bg-transparent py-2 pl-3 pr-8 text-sm font-medium outline-none focus:border-brand"
                 >
@@ -113,19 +128,18 @@ export function AppShell({
             {currentBusinessId ? (
               <>
                 <div className="space-y-0.5">
-                  <ModuleLink businessId={currentBusinessId} mod={OVERVIEW} active={activeKey === "overview"} />
+                  <ModuleLink businessId={currentBusinessId} mod={OVERVIEW} role={role} active={activeKey === "overview"} />
                 </div>
                 {MODULE_GROUPS.map((group) => (
                   <div key={group.label}>
                     <p className="px-2 pb-1 text-xs font-medium uppercase tracking-wide text-faint">{group.label}</p>
                     <div className="space-y-0.5">
-                      {group.modules
-                        .filter((mod) => !mod.ownerOnly || current?.role === "owner")
-                        .map((mod) => (
+                      {group.modules.map((mod) => (
                         <ModuleLink
                           key={mod.key}
                           businessId={currentBusinessId}
                           mod={mod}
+                          role={role}
                           active={activeKey === mod.key}
                         />
                       ))}
@@ -180,14 +194,48 @@ export function AppShell({
         />
       )}
 
-      <div className="min-w-0 flex-1 pt-14 md:pt-0">{children}</div>
+      <div className="min-w-0 flex-1 pt-14 md:pt-0">
+        {currentBusinessId && tabs.length > 1 && (
+          <nav
+            aria-label={location!.module.label}
+            className="sticky top-14 z-[4] flex gap-1 overflow-x-auto border-b border-border bg-background/95 px-4 backdrop-blur md:top-0 md:px-6"
+          >
+            {tabs.map((tab) => {
+              const active = tab.key === location!.tab.key;
+              return (
+                <Link
+                  key={tab.key}
+                  href={tabHref(currentBusinessId, tab)}
+                  aria-current={active ? "page" : undefined}
+                  className={`shrink-0 border-b-2 px-3 py-3 text-sm font-medium ${
+                    active ? "border-brand text-brand" : "border-transparent text-muted hover:text-foreground"
+                  }`}
+                >
+                  {tab.label}
+                </Link>
+              );
+            })}
+          </nav>
+        )}
+        {children}
+      </div>
     </div>
   );
 }
 
-function ModuleLink({ businessId, mod, active }: { businessId: string; mod: ModuleDef; active: boolean }) {
+function ModuleLink({
+  businessId,
+  mod,
+  role,
+  active,
+}: {
+  businessId: string;
+  mod: ModuleDef;
+  role: "owner" | "manager" | undefined;
+  active: boolean;
+}) {
   return (
-    <NavLink href={moduleHref(businessId, mod.key)} icon={mod.icon} active={active}>
+    <NavLink href={moduleHref(businessId, mod, role)} icon={mod.icon} active={active}>
       {mod.label}
     </NavLink>
   );

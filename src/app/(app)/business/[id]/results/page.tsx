@@ -199,7 +199,7 @@ export default async function ResultsPage({
             ? "No había publicaciones planificadas en este periodo."
             : `Publicaste ${published} de ${planItems.length} publicaciones planificadas en los últimos ${days} días.`}{" "}
           <Link href={`/business/${id}/calendar`} className="text-brand hover:underline">
-            Abrir el Manager de contenido →
+            Abrir el Calendario →
           </Link>
         </p>
       </Section>
@@ -220,7 +220,7 @@ export default async function ResultsPage({
         </div>
         {variantResults.length > 0 && (
           <p className="text-xs text-faint">
-            Vienen de los resultados que registraste en el Distribuidor para cada creativo.
+            Vienen de los resultados que registraste en Creativos para cada creativo.
           </p>
         )}
         {activity.length > 0 ? (

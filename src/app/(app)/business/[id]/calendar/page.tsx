@@ -19,7 +19,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input, Select, Textarea } from "@/components/ui/Field";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Notice } from "@/components/business/sections";
+import { Notice, AiRequired } from "@/components/business/sections";
 import { addPlanItem, generatePlan } from "../calendar-actions";
 import { PlanItemForm } from "./PlanItemForm";
 
@@ -89,7 +89,7 @@ export default async function CalendarPage({
     <main className="mx-auto max-w-6xl px-6 py-10">
       <PageHeader
         eyebrow={business.name}
-        title="Manager de contenido"
+        title="Calendario"
         description="Todas tus publicaciones en un solo calendario: reels, carruseles, historias y posts de todas tus campañas y redes."
       />
 
@@ -141,12 +141,7 @@ export default async function CalendarPage({
               <Button type="submit">Generar plan</Button>
             </form>
           ) : (
-            <p className="mt-3 text-sm">
-              <Link href={`/business/${id}/settings`} className="text-brand hover:underline">
-                Configura tu IA
-              </Link>{" "}
-              para planificar automáticamente.
-            </p>
+            <AiRequired businessId={id} what="planificar automáticamente" className="mt-3" />
           )}
         </details>
 

@@ -22,6 +22,7 @@ import {
   generateIdeasFromCompetitors,
 } from "../competitor-actions";
 import { createPieceFromIdea } from "../content-actions";
+import { Notice } from "@/components/ui/Notice";
 
 const nf = new Intl.NumberFormat("es");
 
@@ -72,20 +73,20 @@ export default async function CompetitorsPage({
     <main className="mx-auto max-w-3xl px-6 py-12">
       <PageHeader
         backHref={`/business/${id}/ideas`}
-        backLabel="Volver a Generador de ideas"
+        backLabel="Volver a Ideas"
         title="Competencia"
         description="Qué publica tu competencia y qué le funciona, con datos públicos reales. A partir de eso, ideas de video adaptadas a tu negocio."
       />
 
       {error && (
-        <p className="mb-4 rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+        <Notice tone="danger" className="mb-4">
           {error}
-        </p>
+        </Notice>
       )}
       {ideasJustGenerated && (
-        <p className="mb-4 rounded-md bg-green-50 px-4 py-3 text-sm text-green-700 dark:bg-green-950 dark:text-green-300">
+        <Notice tone="success" className="mb-4">
           Listo: ideas nuevas generadas a partir de las publicaciones de tu competencia.
-        </p>
+        </Notice>
       )}
 
       <Card className="p-4 text-sm">

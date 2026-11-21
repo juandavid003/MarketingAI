@@ -40,7 +40,7 @@ export default async function CopywriterPage({
     <main className="mx-auto max-w-3xl px-6 py-10">
       <PageHeader
         eyebrow={business.name}
-        title="Copywriter"
+        title="Guiones"
         description="Guiones listos para grabar con el celular: hook, escenas (qué mostrar, qué decir y cómo grabarlo), descripción, hashtags y llamadas a la acción."
       />
       {error && <Notice tone="danger">{error}</Notice>}
@@ -50,7 +50,7 @@ export default async function CopywriterPage({
         <p className="mt-1 text-sm text-muted">
           También puedes crearlo desde una campaña o desde una idea de la competencia en el{" "}
           <Link href={`/business/${id}/ideas`} className="text-brand hover:underline">
-            Generador de ideas
+            Ideas
           </Link>
           .
         </p>

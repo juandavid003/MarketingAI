@@ -21,6 +21,11 @@ import { Button } from "@/components/ui/Button";
 import { assemblePiece, deletePiece, generatePieceCopy } from "../../content-actions";
 import { TakeUploadForm } from "./TakeUploadForm";
 import { TakeDetails } from "./TakeDetails";
+import { AiTakeForm } from "./AiTakeForm";
+import { getVideoProvider, sceneVideoPrompt } from "@/lib/videoGen";
+import { languageLabel } from "@/lib/businessContext";
+import { Notice } from "@/components/ui/Notice";
+import { AiRequired } from "@/components/business/sections";
 
 type SourceRef = { permalink: string | null; competitor: string; why: string };
 
@@ -33,7 +38,7 @@ export default async function ContentPiecePage({
 }) {
   const { id, pieceId } = await params;
   const { error } = await searchParams;
-  await requireBusinessAccess(id);
+  const { business } = await requireBusinessAccess(id);
 
   const piece = await prisma.contentPiece.findFirst({
     where: { id: pieceId, businessId: id },
@@ -62,23 +67,32 @@ export default async function ContentPiecePage({
   const rerecordCount = mainTakes.filter((t) => parseReview(t.review)?.verdict === "rerecord").length;
   const assemblyStalled = isAssemblyStalled(piece);
   const assembling = piece.assemblyStatus === "assembling" && !assemblyStalled;
-  const takesProcessing = piece.takes.some((t) => ["uploaded", "processing"].includes(t.status) && !isTakeStalled(t));
+  const takesProcessing = piece.takes.some(
+    (t) => ["generating", "uploaded", "processing"].includes(t.status) && !isTakeStalled(t)
+  );
+  // AI video: configured when there's a provider and a key for it (Gemini
+  // can reuse the visual-review key) — see lib/videoGen/credentials.ts.
+  const videoProvider = getVideoProvider(business.videoAiProvider);
+  const videoAiReady =
+    videoProvider != null &&
+    (business.videoAiKeyEncrypted != null || (videoProvider.id === "gemini" && business.geminiApiKeyEncrypted != null));
+  const language = languageLabel(business.contentLanguage);
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
       {(assembling || takesProcessing) && <AutoRefresh />}
       <PageHeader
         backHref={`/business/${id}/copywriter`}
-        backLabel="Volver al Copywriter"
+        backLabel="Volver a Guiones"
         eyebrow={`${purposeLabel(content.proposito)} · ${content.formato} · ~${Math.round(content.duracionTotalSegundos)} s`}
         title={`“${content.hook}”`}
         description={piece.sourceSummary}
       />
 
       {error && (
-        <p className="mb-4 rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+        <Notice tone="danger" className="mb-4">
           {error}
-        </p>
+        </Notice>
       )}
 
       {refs.length > 0 && (
@@ -114,8 +128,8 @@ export default async function ContentPiecePage({
           </p>
         </div>
         <p className="mt-1 text-sm text-muted">
-          Graba cada escena como un video separado con el celular en vertical y súbela aquí.
-          Revisamos cada toma y te avisamos si conviene volver a grabarla.
+          Graba cada escena como un video separado con el celular en vertical y súbela aquí, o genera con IA
+          las que no puedas grabar. Revisamos cada toma y te avisamos si conviene volver a grabarla.
         </p>
 
         <div className="mt-4 space-y-4">
@@ -137,6 +151,20 @@ export default async function ContentPiecePage({
                 <div className="mt-4 space-y-3 border-t border-border pt-3">
                   {take && <TakeDetails businessId={id} pieceId={pieceId} take={take} label="esta escena" />}
                   <TakeUploadForm businessId={id} pieceId={pieceId} sceneNumber={scene.numero} hasTake={!!take} />
+                  {videoAiReady ? (
+                    <AiTakeForm
+                      businessId={id}
+                      pieceId={pieceId}
+                      sceneNumber={scene.numero}
+                      providerLabel={videoProvider!.label}
+                      hasTake={!!take}
+                      defaultPrompt={
+                        take?.source === "ai" && take.aiPrompt ? take.aiPrompt : sceneVideoPrompt(scene, business, language)
+                      }
+                    />
+                  ) : (
+                    <AiRequired businessId={id} what="generar escenas con video IA" className="text-xs" />
+                  )}
                 </div>
               </Card>
             );

@@ -11,6 +11,10 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import AiSettingsForm, { GeminiKeyForm } from "./AiSettingsForm";
+import { VideoAiForm } from "./VideoAiForm";
+import { clearVideoAiSettings } from "./video-ai-actions";
+import { VIDEO_PROVIDERS, getVideoProvider, resolveVideoModel } from "@/lib/videoGen";
+import { Notice } from "@/components/ui/Notice";
 
 const PROVIDER_LABEL: Record<string, string> = {
   anthropic: "Anthropic (Claude)",
@@ -19,10 +23,15 @@ const PROVIDER_LABEL: Record<string, string> = {
 
 export default async function AiSettingsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string; campaign_error?: string }>;
 }) {
   const { id } = await params;
+  const sp = await searchParams;
+  // Features that need a key send the owner here with the reason.
+  const redirectError = sp.error ?? sp.campaign_error;
 
   const { role } = await requireBusinessAccess(id);
   if (!can(role, "manage_settings")) {
@@ -39,12 +48,17 @@ export default async function AiSettingsPage({
       openaiTranscriptionKeyEncrypted: true,
       openaiImageKeyEncrypted: true,
       geminiApiKeyEncrypted: true,
+      videoAiProvider: true,
+      videoAiKeyEncrypted: true,
+      videoAiModel: true,
     },
   });
 
   if (!business) {
     notFound();
   }
+
+  const videoProvider = getVideoProvider(business.videoAiProvider);
 
   // Gemini spike: what the visual reviews have cost so far.
   const reviewed = await prisma.sceneTake.findMany({
@@ -67,6 +81,8 @@ export default async function AiSettingsPage({
         title="Configuración de IA"
         description={`Elige el proveedor de IA que se usará para generar campañas y contenido para ${business.name}. Usamos tu propia API key — no compartimos ni reutilizamos tu cuota entre negocios.`}
       />
+
+      {redirectError && <Notice tone="warning" className="mb-4">{redirectError}</Notice>}
 
       <div className="space-y-3">
         {business.aiProvider && (
@@ -113,6 +129,39 @@ export default async function AiSettingsPage({
             </p>
           </Card>
         )}
+      </section>
+      <section className="mt-12 space-y-3 border-t border-border pt-8">
+        <h2 className="text-lg font-semibold">Video con IA (escenas generadas)</h2>
+        <p className="text-sm text-muted">
+          Para las escenas que no puedes grabar: la IA genera el clip a partir del guion y lo armamos con tus tomas,
+          subtítulos y logo. Usa tu propia key; el proveedor te cobra cada generación.
+        </p>
+        {videoProvider && (
+          <ConfiguredRow
+            label={`Configurado: ${videoProvider.label} · ${resolveVideoModel(videoProvider, business.videoAiModel)}${
+              !business.videoAiKeyEncrypted && videoProvider.id === "gemini" ? " (usa tu key de Gemini)" : ""
+            }`}
+            onClear={clearVideoAiSettings.bind(null, business.id)}
+          />
+        )}
+        <VideoAiForm
+          businessId={business.id}
+          providers={VIDEO_PROVIDERS.map((p) => ({
+            id: p.id,
+            label: p.label,
+            keyLabel: p.keyLabel,
+            keyPlaceholder: p.keyPlaceholder,
+            keyHelp: p.keyHelp,
+            defaultModel: resolveVideoModel(p, null),
+            suggestedModels: p.suggestedModels,
+          }))}
+          current={{
+            provider: business.videoAiProvider,
+            model: business.videoAiModel,
+            hasKey: business.videoAiKeyEncrypted != null,
+          }}
+          hasGeminiKey={business.geminiApiKeyEncrypted != null}
+        />
       </section>
     </main>
   );

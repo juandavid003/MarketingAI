@@ -102,12 +102,12 @@ export function buildFacts(d: AssistantData): Fact[] {
 
   // Execution.
   add(
-    "Manager de contenido",
+    "Calendario",
     "Publicaciones planificadas en los últimos 30 días y cuántas se publicaron",
     `${d.plan30.published} de ${d.plan30.planned} (${pct(d.plan30.published, d.plan30.planned)})`,
     "/calendar"
   );
-  add("Manager de contenido", "Publicaciones planificadas para los próximos 14 días", String(d.planNext14), "/calendar");
+  add("Calendario", "Publicaciones planificadas para los próximos 14 días", String(d.planNext14), "/calendar");
   add(
     "Publicaciones",
     "Publicaciones automáticas de los últimos 30 días",
@@ -120,7 +120,7 @@ export function buildFacts(d: AssistantData): Fact[] {
   // Platform metrics — kept apart: they are attention, not customers.
   for (const c of d.creatives90) {
     add(
-      "Distribuidor",
+      "Creativos",
       `Creativo ${c.code} del contenido “${c.hook}”, métricas de redes registradas en 90 días`,
       `${c.views} vistas, ${c.interactions} interacciones, ${c.clicks} clics/mensajes`,
       "/distribution"

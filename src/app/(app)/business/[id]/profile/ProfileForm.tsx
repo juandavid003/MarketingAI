@@ -5,6 +5,7 @@ import { updateBusinessProfile, type ProfileFormState } from "./actions";
 import { INDUSTRIES, OBJECTIVES, PLATFORMS, CONTENT_LANGUAGES } from "@/lib/constants";
 import { Input, Select, Textarea, FormField } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
+import { Notice } from "@/components/ui/Notice";
 
 export type ProfileFormValues = {
   name: string;
@@ -182,14 +183,14 @@ export default function ProfileForm({
       </Section>
 
       {state.error && (
-        <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+        <Notice tone="danger">
           {state.error}
-        </p>
+        </Notice>
       )}
       {state.success && !pending && (
-        <p className="rounded-md bg-green-50 px-4 py-3 text-sm text-green-700 dark:bg-green-950 dark:text-green-300">
+        <Notice tone="success">
           Perfil guardado.
-        </p>
+        </Notice>
       )}
 
       <Button type="submit" disabled={pending} size="lg" className="w-full">

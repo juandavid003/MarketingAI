@@ -22,6 +22,7 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Field";
+import { Notice } from "@/components/ui/Notice";
 
 export default async function CampaignPage({
   params,
@@ -109,18 +110,18 @@ export default async function CampaignPage({
     <main className="mx-auto max-w-2xl px-6 py-12">
       <PageHeader
         backHref={`/business/${id}/ideas`}
-        backLabel="Volver a Generador de ideas"
+        backLabel="Volver a Ideas"
         eyebrow={`Campaña generada · ${campaign.provider} (${campaign.model})`}
         title={campaign.title}
         description={`Basada en: ${campaign.sourceInsight}`}
       />
 
       <div className="space-y-2">
-        {storyboardError && <Notice>No se pudo generar el guion: {storyboardError}</Notice>}
-        {pieceError && <Notice>No se pudo generar el guion: {pieceError}</Notice>}
-        {imageError && <Notice>No se pudo generar la imagen: {imageError}</Notice>}
-        {publishError && <Notice>No se pudo publicar: {publishError}</Notice>}
-        {adError && <Notice>{adError}</Notice>}
+        {storyboardError && <Notice tone="danger">No se pudo generar el guion: {storyboardError}</Notice>}
+        {pieceError && <Notice tone="danger">No se pudo generar el guion: {pieceError}</Notice>}
+        {imageError && <Notice tone="danger">No se pudo generar la imagen: {imageError}</Notice>}
+        {publishError && <Notice tone="danger">No se pudo publicar: {publishError}</Notice>}
+        {adError && <Notice tone="danger">{adError}</Notice>}
       </div>
 
       {highlight && (
@@ -281,13 +282,6 @@ export default async function CampaignPage({
   );
 }
 
-function Notice({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
-      {children}
-    </p>
-  );
-}
 
 function PerformanceLine({ performance }: { performance: PublishedPostPerformance | undefined }) {
   if (!performance) {

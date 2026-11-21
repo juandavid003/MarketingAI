@@ -47,7 +47,7 @@ describe("growth assistant facts", () => {
 
   it("keeps platform metrics apart from business results", () => {
     const creative = buildFacts(data()).find((f) => f.label.includes("H2C1"))!;
-    expect(creative.topic).toBe("Distribuidor");
+    expect(creative.topic).toBe("Creativos");
     expect(creative.label).toMatch(/métricas de redes/);
   });
 

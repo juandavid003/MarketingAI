@@ -77,14 +77,9 @@ export default async function BusinessOverviewPage({
 
   const moduleStat: Record<string, string> = {
     ideas: `${campaigns} campañas · ${competitors} competidores`,
-    copywriter: `${pieces} guiones`,
-    distribution: `${plans} planes de distribución`,
-    calendar: `${scheduled} publicaciones próximas`,
-    videos: `${videos} videos`,
-    publishing: `${queued} programadas`,
-    links: `${links} enlaces · ${clicks30} clics en 30 días`,
-    leads: `${leads30.length} leads en 30 días`,
-    results: `${won30} clientes en 30 días`,
+    content: `${pieces} guiones · ${plans} con creativos · ${videos} videos`,
+    calendar: `${scheduled} publicaciones próximas · ${queued} programadas`,
+    results: `${won30} clientes · ${leads30.length} leads · ${links} enlaces`,
   };
 
   return (
@@ -196,7 +191,7 @@ export default async function BusinessOverviewPage({
           <h2 className="text-sm font-medium uppercase tracking-wide text-faint">{group.label}</h2>
           <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {group.modules.map((mod) => (
-              <Link key={mod.key} href={moduleHref(id, mod.key)} className="group">
+              <Link key={mod.key} href={moduleHref(id, mod, role)} className="group">
                 <Card className="h-full p-4 transition-colors group-hover:border-brand">
                   <p className="flex items-center gap-2 font-medium">
                     <mod.icon className="size-4 text-brand" /> {mod.label}

@@ -23,8 +23,10 @@ import {
   type GeneratedContentPiece,
   type PieceBrief,
 } from "@/lib/contentAi";
-import { storageKey, saveUpload, deleteStored } from "@/lib/storage";
+import { storageKey, saveUpload, deleteStored, fileSize } from "@/lib/storage";
 import { processSceneTake, isTakeStalled } from "@/lib/jobs/processTake";
+import { generateSceneTake } from "@/lib/jobs/generateTake";
+import { businessVideoAi } from "@/lib/videoGen/credentials";
 import { parseStrategy } from "@/lib/distribution";
 import { generatePlatformCopy, copyPlatformsFor } from "@/lib/platformCopy";
 import { assembleContentPiece, isAssemblyStalled } from "@/lib/jobs/assemblePiece";
@@ -59,11 +61,7 @@ async function createPiece(
   });
   const ai = businessAi(business);
   if (!ai) {
-    redirect(
-      `/business/${businessId}/settings?campaign_error=${encodeURIComponent(
-        "Configura tu proveedor de IA antes de generar un guion."
-      )}`
-    );
+    redirect(withError(`/business/${businessId}/settings`, "Configura tu proveedor de IA antes de generar un guion."));
   }
 
   let pieceId: string;
@@ -264,6 +262,9 @@ export async function uploadSceneTake(
       originalFilename: file.name,
       originalPath: key,
       status: "uploaded",
+      source: "upload",
+      aiPrompt: null,
+      aiModel: null,
       durationSeconds: null,
       hasAudio: null,
       transcript: null,
@@ -283,14 +284,82 @@ export async function uploadSceneTake(
   return { ok: true };
 }
 
+// "Generar esta escena con IA": instead of recording, the business's video
+// provider (lib/videoGen) makes the clip from the (editable) scene prompt.
+// The result becomes this scene's take, like an upload.
+export async function generateTakeWithAi(
+  businessId: string,
+  pieceId: string,
+  sceneNumber: number,
+  _prev: UploadTakeState,
+  formData: FormData
+): Promise<UploadTakeState> {
+  const { business } = await requireBusinessAccess(businessId);
+  const piece = await prisma.contentPiece.findFirst({ where: { id: pieceId, businessId } });
+  if (!piece) return { error: "No encontramos este guion." };
+  if (piece.assemblyStatus === "assembling") {
+    return { error: "Espera a que termine de armarse el video antes de cambiar una toma." };
+  }
+  const content = JSON.parse(piece.content) as GeneratedContentPiece;
+  if (!content.escenas.some((s) => s.numero === sceneNumber)) return { error: "Esa escena no existe." };
+  const videoAi = businessVideoAi(business);
+  if (!videoAi) return { error: "Configura un proveedor de video con IA en Negocio → Inteligencia artificial." };
+
+  const prompt = String(formData.get("prompt") ?? "").trim().slice(0, 4000);
+  if (prompt.length < 10) return { error: "Describe la escena que quieres generar." };
+
+  const slot = "main";
+  const uniqueTake = { contentPieceId_sceneNumber_slot: { contentPieceId: pieceId, sceneNumber, slot } };
+  const previous = await prisma.sceneTake.findUnique({ where: uniqueTake });
+  if (previous && ["generating", "uploaded", "processing"].includes(previous.status) && !isTakeStalled(previous)) {
+    return { error: "Esta escena ya se está procesando. Espera a que termine." };
+  }
+
+  const takeId = randomUUID();
+  const key = storageKey(businessId, "pieces", pieceId, "takes", takeId, "original.mp4");
+  const fresh = {
+    id: takeId,
+    originalFilename: `Generada con IA · ${videoAi.provider.label}`,
+    originalPath: key,
+    status: "generating",
+    source: "ai",
+    aiPrompt: prompt,
+    aiModel: `${videoAi.provider.id}:${videoAi.model}`,
+    durationSeconds: null,
+    hasAudio: null,
+    transcript: null,
+    keepIntervals: null,
+    review: null,
+    errorMessage: null,
+  };
+  await prisma.sceneTake.upsert({
+    where: uniqueTake,
+    create: { ...fresh, contentPieceId: pieceId, sceneNumber, slot },
+    update: fresh,
+  });
+  if (previous) {
+    await deleteStored(storageKey(businessId, "pieces", pieceId, "takes", previous.id)).catch(() => {});
+  }
+
+  after(() => generateSceneTake(takeId));
+  revalidatePath(piecePath(businessId, pieceId));
+  return { ok: true };
+}
+
 export async function retryTake(businessId: string, pieceId: string, takeId: string) {
   await requireBusinessAccess(businessId);
   const take = await prisma.sceneTake.findFirst({
     where: { id: takeId, contentPieceId: pieceId, contentPiece: { businessId } },
   });
   if (take && (take.status === "error" || isTakeStalled(take))) {
-    await prisma.sceneTake.update({ where: { id: takeId }, data: { status: "uploaded", errorMessage: null } });
-    after(() => processSceneTake(takeId));
+    // An AI take whose clip never arrived is generated again; anything with
+    // a file on disk is just processed again.
+    const regenerate = take.source === "ai" && (await fileSize(take.originalPath)) == null;
+    await prisma.sceneTake.update({
+      where: { id: takeId },
+      data: { status: regenerate ? "generating" : "uploaded", errorMessage: null },
+    });
+    after(() => (regenerate ? generateSceneTake(takeId) : processSceneTake(takeId)));
   }
   revalidatePath(piecePath(businessId, pieceId));
   revalidatePath(`${piecePath(businessId, pieceId)}/creatives`);

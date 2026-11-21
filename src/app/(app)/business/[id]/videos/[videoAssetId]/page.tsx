@@ -12,6 +12,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { Notice } from "@/components/ui/Notice";
 
 const STATUS_LABEL: Record<string, string> = {
   uploaded: "Subido, preparando...",
@@ -108,14 +109,14 @@ export default async function VideoAssetPage({
       )}
 
       <div className="space-y-2">
-        {video.status === "error" && video.errorMessage && <Notice>{video.errorMessage}</Notice>}
+        {video.status === "error" && video.errorMessage && <Notice tone="danger">{video.errorMessage}</Notice>}
         {stalled && (
-          <Notice>
+          <Notice tone="danger">
             El procesamiento se interrumpió (probablemente por un reinicio del servidor). Puedes
             reintentarlo.
           </Notice>
         )}
-        {publishError && <Notice>No se pudo publicar: {publishError}</Notice>}
+        {publishError && <Notice tone="danger">No se pudo publicar: {publishError}</Notice>}
         {canRetry && (
           <form action={retryVideoProcessing.bind(null, id, videoAssetId)}>
             <Button type="submit" size="sm" variant="secondary">
@@ -215,10 +216,3 @@ export default async function VideoAssetPage({
   );
 }
 
-function Notice({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
-      {children}
-    </p>
-  );
-}

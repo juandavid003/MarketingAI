@@ -29,7 +29,8 @@ export const TAKE_STALL_AFTER_MS = 20 * 60 * 1000;
 
 export function isTakeStalled(take: { status: string; updatedAt: Date }): boolean {
   return (
-    ["uploaded", "processing"].includes(take.status) && Date.now() - take.updatedAt.getTime() > TAKE_STALL_AFTER_MS
+    ["generating", "uploaded", "processing"].includes(take.status) &&
+    Date.now() - take.updatedAt.getTime() > TAKE_STALL_AFTER_MS
   );
 }
 
