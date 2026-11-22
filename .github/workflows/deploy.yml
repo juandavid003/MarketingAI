@@ -110,10 +110,15 @@ jobs:
             chmod +x backup.sh
             echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
             sed -i "s|^APP_IMAGE=.*|APP_IMAGE=${{ needs.build.outputs.image }}|" .env
+            # Every app image is ~4 GB and tagged per commit, so a plain
+            # `prune -f` (dangling only) kept them all until the disk filled
+            # (2026-11-22). -a drops every image no container uses: the
+            # running app, Postgres and Caddy stay.
+            docker image prune -af
             docker compose pull app
             docker logout ghcr.io
             docker compose up -d --remove-orphans
-            docker image prune -f
+            docker image prune -af
             # Fail the deploy if the app doesn't come up.
             for i in $(seq 1 30); do
               if docker compose exec -T app node -e "fetch('http://localhost:3000/login').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"; then
