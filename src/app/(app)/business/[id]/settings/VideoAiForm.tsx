@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState } from "react";
+import { CheckCircle2, Circle } from "lucide-react";
 import { saveVideoAiSettings } from "./video-ai-actions";
 import type { AiSettingsState } from "../actions";
 import { Input, Label, Select } from "@/components/ui/Field";
@@ -10,83 +11,88 @@ import { Notice } from "@/components/ui/Notice";
 export type VideoProviderOption = {
   id: string;
   label: string;
-  keyLabel: string;
-  keyPlaceholder: string;
-  keyHelp: string;
+  strengths: string;
+  keyWhere: string; // where its key comes from
+  available: boolean;
   defaultModel: string;
+  model: string; // business override ("" = default)
   suggestedModels: { id: string; label: string }[];
 };
 
-const initialState: AiSettingsState = {};
-
-// Provider, key and model for generated scenes. The model is free text with
+// Which AI makes the generated scenes. Models are free text with
 // suggestions: when a provider ships a new model, the owner types its id —
 // no app update needed.
 export function VideoAiForm({
   businessId,
   providers,
-  current,
-  hasGeminiKey,
+  preferred,
+  hasFalKey,
 }: {
   businessId: string;
   providers: VideoProviderOption[];
-  current: { provider: string | null; model: string | null; hasKey: boolean };
-  hasGeminiKey: boolean;
+  preferred: string | null;
+  hasFalKey: boolean;
 }) {
-  const [state, formAction, pending] = useActionState(saveVideoAiSettings.bind(null, businessId), initialState);
-  const [providerId, setProviderId] = useState(current.provider ?? providers[0]?.id ?? "");
-  const provider = providers.find((p) => p.id === providerId) ?? providers[0];
-  const keyOptional =
-    (provider.id === "gemini" && hasGeminiKey) || (current.provider === provider.id && current.hasKey);
+  const [state, formAction, pending] = useActionState(saveVideoAiSettings.bind(null, businessId), {} as AiSettingsState);
 
   return (
-    <form action={formAction} className="space-y-4">
-      <div className="space-y-1">
-        <Label htmlFor="videoProvider">Proveedor de video</Label>
-        <Select id="videoProvider" name="provider" value={providerId} onChange={(e) => setProviderId(e.target.value)}>
-          {providers.map((p) => (
-            <option key={p.id} value={p.id}>
+    <form action={formAction} className="space-y-5">
+      <ul className="space-y-3">
+        {providers.map((p) => (
+          <li key={p.id} className="rounded-md border border-border p-3 text-sm">
+            <p className="flex items-center gap-1.5 font-medium">
+              {p.available ? (
+                <CheckCircle2 className="size-4 text-green-600 dark:text-green-400" />
+              ) : (
+                <Circle className="size-4 text-faint" />
+              )}
               {p.label}
+              <span className="font-normal text-muted">· {p.available ? "lista" : p.keyWhere}</span>
+            </p>
+            <p className="mt-1 text-muted">{p.strengths}</p>
+            <div className="mt-2 space-y-1">
+              <Label htmlFor={`model_${p.id}`} className="text-xs">
+                Modelo (opcional)
+              </Label>
+              <Input
+                id={`model_${p.id}`}
+                name={`model_${p.id}`}
+                list={`models-${p.id}`}
+                defaultValue={p.model}
+                placeholder={`Por defecto: ${p.defaultModel}`}
+              />
+              <datalist id={`models-${p.id}`}>
+                {p.suggestedModels.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.label}
+                  </option>
+                ))}
+              </datalist>
+            </div>
+            {p.id === "fal" && (
+              <div className="mt-2 space-y-1">
+                <Label htmlFor="falKey" className="text-xs">
+                  fal.ai API key {hasFalKey && <span className="font-normal text-muted">(guardada; pega otra para cambiarla)</span>}
+                </Label>
+                <Input id="falKey" name="falKey" type="password" autoComplete="off" placeholder="Créala en fal.ai → Keys" />
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
+
+      <div className="space-y-1">
+        <Label htmlFor="preferred">IA para escenas</Label>
+        <Select id="preferred" name="preferred" defaultValue={preferred ?? ""}>
+          <option value="">Automática: la recomendada para cada escena</option>
+          {providers.map((p) => (
+            <option key={p.id} value={p.id} disabled={!p.available}>
+              Siempre {p.label}
+              {!p.available ? " (falta la key)" : ""}
             </option>
           ))}
         </Select>
-      </div>
-
-      <div className="space-y-1">
-        <Label htmlFor="videoApiKey">
-          {provider.keyLabel} {keyOptional && <span className="font-normal text-muted">(opcional)</span>}
-        </Label>
-        <Input
-          id="videoApiKey"
-          name="apiKey"
-          type="password"
-          autoComplete="off"
-          placeholder={keyOptional ? "Déjalo vacío para mantener la key actual" : provider.keyPlaceholder}
-          required={!keyOptional}
-        />
-        <p className="text-xs text-muted">{provider.keyHelp}</p>
-      </div>
-
-      <div className="space-y-1">
-        <Label htmlFor="videoModel">Modelo (opcional)</Label>
-        <Input
-          id="videoModel"
-          name="model"
-          list={`video-models-${provider.id}`}
-          defaultValue={current.provider === provider.id ? (current.model ?? "") : ""}
-          key={provider.id}
-          placeholder={`Por defecto: ${provider.defaultModel}`}
-        />
-        <datalist id={`video-models-${provider.id}`}>
-          {provider.suggestedModels.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.label}
-            </option>
-          ))}
-        </datalist>
-        <p className="text-xs text-muted">
-          Si el proveedor lanza un modelo nuevo, escribe aquí su nombre exacto. Vacío = el recomendado.
-        </p>
+        <p className="text-xs text-muted">Igual puedes cambiarla en cada escena antes de generar.</p>
       </div>
 
       {state.error && <Notice tone="danger">{state.error}</Notice>}
@@ -94,7 +100,7 @@ export function VideoAiForm({
       {state.warning && <Notice tone="warning">{state.warning}</Notice>}
 
       <Button type="submit" size="sm" disabled={pending}>
-        {pending ? "Verificando..." : "Guardar video con IA"}
+        {pending ? "Guardando..." : "Guardar video con IA"}
       </Button>
     </form>
   );

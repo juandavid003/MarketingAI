@@ -1,11 +1,12 @@
 // GPT Image models always return base64 image data (no response_format /
 // url option like the older DALL-E models).
-const IMAGE_MODEL = "gpt-image-2";
+export const IMAGE_MODEL = "gpt-image-2";
 
 export async function generateImage(
   apiKey: string,
   prompt: string,
-  size: "1024x1024" | "1024x1536" | "1536x1024" = "1024x1536"
+  size: "1024x1024" | "1024x1536" | "1536x1024" = "1024x1536",
+  options: { model?: string; signal?: AbortSignal } = {}
 ): Promise<Buffer> {
   const res = await fetch("https://api.openai.com/v1/images/generations", {
     method: "POST",
@@ -14,11 +15,12 @@ export async function generateImage(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: IMAGE_MODEL,
+      model: options.model ?? IMAGE_MODEL,
       prompt,
       size,
       n: 1,
     }),
+    signal: options.signal,
   });
 
   const json = await res.json();

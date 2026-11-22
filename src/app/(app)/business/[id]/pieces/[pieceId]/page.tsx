@@ -22,10 +22,10 @@ import { assemblePiece, deletePiece, generatePieceCopy } from "../../content-act
 import { TakeUploadForm } from "./TakeUploadForm";
 import { TakeDetails } from "./TakeDetails";
 import { AiTakeForm } from "./AiTakeForm";
-import { getVideoProvider, sceneVideoPrompt } from "@/lib/videoGen";
-import { languageLabel } from "@/lib/businessContext";
+import { VIDEO_PROVIDERS, sceneVideoPrompt } from "@/lib/videoGen";
+import { availableVideoProviderIds } from "@/lib/videoGen/credentials";
+import { recommendProvider } from "@/lib/videoGen/recommend";
 import { Notice } from "@/components/ui/Notice";
-import { AiRequired } from "@/components/business/sections";
 
 type SourceRef = { permalink: string | null; competitor: string; why: string };
 
@@ -70,13 +70,25 @@ export default async function ContentPiecePage({
   const takesProcessing = piece.takes.some(
     (t) => ["generating", "uploaded", "processing"].includes(t.status) && !isTakeStalled(t)
   );
-  // AI video: configured when there's a provider and a key for it (Gemini
-  // can reuse the visual-review key) — see lib/videoGen/credentials.ts.
-  const videoProvider = getVideoProvider(business.videoAiProvider);
-  const videoAiReady =
-    videoProvider != null &&
-    (business.videoAiKeyEncrypted != null || (videoProvider.id === "gemini" && business.geminiApiKeyEncrypted != null));
-  const language = languageLabel(business.contentLanguage);
+  // AI video: which providers this business has keys for, and per scene
+  // which one is recommended (lib/videoGen/recommend.ts). A preferred
+  // provider from Settings wins when it's usable.
+  const availableVideo = availableVideoProviderIds(business);
+  const providerIds = VIDEO_PROVIDERS.map((p) => p.id);
+  const textAi = business.aiProvider === "anthropic" ? "Claude" : business.aiProvider === "openai" ? "OpenAI" : null;
+  const aiChoicesFor = (scene: (typeof content.escenas)[number]) => {
+    const rec = recommendProvider({ scene, platforms: business.mainPlatforms, available: availableVideo, providerIds });
+    const preferred =
+      business.videoAiProvider && availableVideo.includes(business.videoAiProvider) ? business.videoAiProvider : rec.best;
+    return {
+      kind: rec.kind,
+      upgradeHint: rec.upgradeHint,
+      choices: rec.ranking.map((r) => {
+        const p = VIDEO_PROVIDERS.find((v) => v.id === r.id)!;
+        return { id: r.id, label: p.label, strengths: p.strengths, available: r.available, recommended: r.id === preferred, reasons: r.reasons };
+      }),
+    };
+  };
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
@@ -151,20 +163,16 @@ export default async function ContentPiecePage({
                 <div className="mt-4 space-y-3 border-t border-border pt-3">
                   {take && <TakeDetails businessId={id} pieceId={pieceId} take={take} label="esta escena" />}
                   <TakeUploadForm businessId={id} pieceId={pieceId} sceneNumber={scene.numero} hasTake={!!take} />
-                  {videoAiReady ? (
-                    <AiTakeForm
-                      businessId={id}
-                      pieceId={pieceId}
-                      sceneNumber={scene.numero}
-                      providerLabel={videoProvider!.label}
-                      hasTake={!!take}
-                      defaultPrompt={
-                        take?.source === "ai" && take.aiPrompt ? take.aiPrompt : sceneVideoPrompt(scene, business, language)
-                      }
-                    />
-                  ) : (
-                    <AiRequired businessId={id} what="generar escenas con video IA" className="text-xs" />
-                  )}
+                  <AiTakeForm
+                    businessId={id}
+                    pieceId={pieceId}
+                    sceneNumber={scene.numero}
+                    hasTake={!!take}
+                    textAi={textAi}
+                    {...aiChoicesFor(scene)}
+                    defaultVisual={take?.source === "ai" && take.aiPrompt ? take.aiPrompt : sceneVideoPrompt(scene, business).visual}
+                    defaultNarration={take?.source === "ai" && take.aiNarration != null ? take.aiNarration : scene.queDecir}
+                  />
                 </div>
               </Card>
             );

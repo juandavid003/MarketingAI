@@ -68,14 +68,15 @@ model Business {
   // Brand logo (storage key), overlaid on assembled videos.
   logoPath String?
 
-  // AI video generation for scenes the owner doesn't want to record
-  // (lib/videoGen). Provider id from VIDEO_PROVIDERS ("gemini" | "fal" | …),
-  // the client's own key, and an optional model override — so a new model or
-  // provider is a settings change, not a migration. For "gemini" the key may
-  // be empty and geminiApiKeyEncrypted is reused.
-  videoAiProvider     String?
-  videoAiKeyEncrypted String?
-  videoAiModel        String?
+  // AI video generation for scenes the owner doesn't record (lib/videoGen).
+  // Each provider runs on a key saved elsewhere (Gemini → geminiApiKey,
+  // OpenAI → any OpenAI key) except fal, which has its own. videoAiProvider
+  // is the preferred one (null = follow the per-scene recommendation);
+  // videoAiModels is JSON {providerId: modelId} — a new model is a settings
+  // change, not a migration.
+  videoAiProvider    String?
+  falApiKeyEncrypted String?
+  videoAiModels      String?
 
   // Sample business created for a new account (lib/demoBusiness.ts) — real
   // rows, clearly labeled; never connected to any social network.
@@ -256,7 +257,8 @@ model SceneTake {
   // "upload" = recorded by the owner; "ai" = generated (status starts at
   // "generating", then follows the normal uploaded → processing → ready).
   source           String       @default("upload")
-  aiPrompt         String?
+  aiPrompt         String? // what the clip shows (visual prompt)
+  aiNarration      String? // what the AI voice says ("" = none)
   aiModel          String? // "<provider>:<model>" that produced it
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @default(now()) @updatedAt

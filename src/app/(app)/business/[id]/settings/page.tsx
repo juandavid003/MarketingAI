@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Circle } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireBusinessAccess } from "@/lib/dal";
 import { can } from "@/lib/access";
@@ -12,8 +12,16 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import AiSettingsForm, { GeminiKeyForm } from "./AiSettingsForm";
 import { VideoAiForm } from "./VideoAiForm";
-import { clearVideoAiSettings } from "./video-ai-actions";
-import { VIDEO_PROVIDERS, getVideoProvider, resolveVideoModel } from "@/lib/videoGen";
+import { clearFalKey } from "./video-ai-actions";
+import { VIDEO_PROVIDERS, parseVideoModels, resolveVideoModel } from "@/lib/videoGen";
+import { availableVideoProviderIds, encryptedKeyFor } from "@/lib/videoGen/credentials";
+import { stackStatus, PLATFORM_TIPS } from "@/lib/videoGen/recommend";
+
+const KEY_WHERE = {
+  gemini: "usa la key de Gemini (arriba)",
+  openai: "usa tu key de OpenAI (arriba)",
+  fal: "necesita su key (abajo)",
+} as const;
 import { Notice } from "@/components/ui/Notice";
 
 const PROVIDER_LABEL: Record<string, string> = {
@@ -48,9 +56,10 @@ export default async function AiSettingsPage({
       openaiTranscriptionKeyEncrypted: true,
       openaiImageKeyEncrypted: true,
       geminiApiKeyEncrypted: true,
+      aiApiKeyEncrypted: true,
       videoAiProvider: true,
-      videoAiKeyEncrypted: true,
-      videoAiModel: true,
+      videoAiModels: true,
+      falApiKeyEncrypted: true,
     },
   });
 
@@ -58,7 +67,14 @@ export default async function AiSettingsPage({
     notFound();
   }
 
-  const videoProvider = getVideoProvider(business.videoAiProvider);
+  const availableVideo = availableVideoProviderIds(business);
+  const videoModels = parseVideoModels(business.videoAiModels);
+  const stack = stackStatus({
+    anthropic: business.aiProvider === "anthropic",
+    openai: encryptedKeyFor("openai", business) != null,
+    gemini: business.geminiApiKeyEncrypted != null,
+    fal: business.falApiKeyEncrypted != null,
+  });
 
   // Gemini spike: what the visual reviews have cost so far.
   const reviewed = await prisma.sceneTake.findMany({
@@ -130,37 +146,65 @@ export default async function AiSettingsPage({
           </Card>
         )}
       </section>
+      <section className="mt-12 space-y-4 border-t border-border pt-8">
+        <h2 className="text-lg font-semibold">Combinación recomendada</h2>
+        <p className="text-sm text-muted">
+          Qué IA conviene para cada parte del trabajo, para que tus videos salgan bien en cada red. Marcamos lo que ya
+          tienes.
+        </p>
+        <ul className="divide-y divide-border rounded-md border border-border">
+          {stack.map((row) => (
+            <li key={row.job} className="flex gap-3 p-3 text-sm">
+              {row.ready ? (
+                <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-green-600 dark:text-green-400" />
+              ) : (
+                <Circle className="mt-0.5 size-4 shrink-0 text-faint" />
+              )}
+              <div className="min-w-0">
+                <p>
+                  <span className="font-medium">{row.job}:</span> {row.pick}
+                  {!row.ready && <span className="text-muted"> · aún no la tienes</span>}
+                </p>
+                <p className="text-muted">{row.why}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+        <details className="text-sm">
+          <summary className="cursor-pointer font-medium">Cómo publicar en cada red</summary>
+          <ul className="mt-2 space-y-1.5 text-muted">
+            {PLATFORM_TIPS.map((t) => (
+              <li key={t.platform}>
+                <span className="font-medium text-foreground">{t.platform}</span> ({t.format}): {t.tip}
+              </li>
+            ))}
+          </ul>
+        </details>
+      </section>
+
       <section className="mt-12 space-y-3 border-t border-border pt-8">
         <h2 className="text-lg font-semibold">Video con IA (escenas generadas)</h2>
         <p className="text-sm text-muted">
-          Para las escenas que no puedes grabar: la IA genera el clip a partir del guion y lo armamos con tus tomas,
-          subtítulos y logo. Usa tu propia key; el proveedor te cobra cada generación.
+          Para las escenas que no puedes grabar. En cada escena eliges con qué IA hacerla y te recomendamos la mejor
+          según lo que muestra y las redes donde publicas. Usa tus propias keys; cada proveedor te cobra lo que generes.
         </p>
-        {videoProvider && (
-          <ConfiguredRow
-            label={`Configurado: ${videoProvider.label} · ${resolveVideoModel(videoProvider, business.videoAiModel)}${
-              !business.videoAiKeyEncrypted && videoProvider.id === "gemini" ? " (usa tu key de Gemini)" : ""
-            }`}
-            onClear={clearVideoAiSettings.bind(null, business.id)}
-          />
+        {business.falApiKeyEncrypted && (
+          <ConfiguredRow label="fal.ai: key guardada" onClear={clearFalKey.bind(null, business.id)} />
         )}
         <VideoAiForm
           businessId={business.id}
+          preferred={business.videoAiProvider}
+          hasFalKey={business.falApiKeyEncrypted != null}
           providers={VIDEO_PROVIDERS.map((p) => ({
             id: p.id,
             label: p.label,
-            keyLabel: p.keyLabel,
-            keyPlaceholder: p.keyPlaceholder,
-            keyHelp: p.keyHelp,
+            strengths: p.strengths,
+            keyWhere: KEY_WHERE[p.keySource],
+            available: availableVideo.includes(p.id),
             defaultModel: resolveVideoModel(p, null),
+            model: videoModels[p.id] ?? "",
             suggestedModels: p.suggestedModels,
           }))}
-          current={{
-            provider: business.videoAiProvider,
-            model: business.videoAiModel,
-            hasKey: business.videoAiKeyEncrypted != null,
-          }}
-          hasGeminiKey={business.geminiApiKeyEncrypted != null}
         />
       </section>
     </main>

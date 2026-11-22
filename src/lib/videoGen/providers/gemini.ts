@@ -1,5 +1,6 @@
 import { VideoGenError, type VideoGenProvider } from "../types";
-import { checkWith, clamp, download, readError } from "../http";
+import { clamp, download, readError } from "../http";
+import { promptWithNarration } from "../prompt";
 
 // Google, through the Gemini API with the client's own key (the same key the
 // visual review of takes uses). Generation goes through the Interactions
@@ -30,10 +31,9 @@ function findVideo(node: unknown, depth = 0): MediaPart | null {
 export const geminiProvider: VideoGenProvider = {
   id: "gemini",
   label: "Google Gemini (Omni Flash)",
-  keyLabel: "Google Gemini API key",
-  keyPlaceholder: "AIza...",
-  keyHelp:
-    "Créala en Google AI Studio. Si ya guardaste una key de Gemini para revisar tus tomas, puedes dejar este campo vacío y la reutilizamos. Google cobra la generación a tu cuenta.",
+  keySource: "gemini",
+  strengths: "Movimiento real con sonido propio (ambiente y voz) en un solo paso. Bueno para acción, ambiente y lugares.",
+  realMotion: true,
   defaultModel: "gemini-omni-1.2-flash",
   suggestedModels: [{ id: "gemini-omni-1.2-flash", label: "Gemini Omni Flash 1.2 (3–15 s, con audio)" }],
 
@@ -46,7 +46,7 @@ export const geminiProvider: VideoGenProvider = {
       body: JSON.stringify({
         model,
         // Omni always generates native audio; the prompt says what it should be.
-        input: req.prompt,
+        input: promptWithNarration(req),
         response_format: { type: "video", aspect_ratio: req.aspectRatio, duration: `${req.durationSeconds}s` },
         // Synchronous, and nothing kept on Google's side for later edits.
         store: false,
@@ -65,6 +65,4 @@ export const geminiProvider: VideoGenProvider = {
     if (video.data) return { data: Buffer.from(video.data, "base64"), mimeType: video.mime_type ?? "video/mp4" };
     return { data: await download(video.uri!, { "x-goog-api-key": apiKey }, signal), mimeType: video.mime_type ?? "video/mp4" };
   },
-
-  checkKey: (apiKey) => checkWith(`${BASE}/models?pageSize=1`, { "x-goog-api-key": apiKey }, WHO),
 };

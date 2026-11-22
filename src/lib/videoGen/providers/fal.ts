@@ -1,5 +1,6 @@
 import { VideoGenError, type KeyCheck, type VideoGenProvider } from "../types";
 import { clamp, download, readError, sleep } from "../http";
+import { promptWithNarration } from "../prompt";
 
 // fal.ai: one key, many video models (Kling, Seedance, …) behind the same
 // queue API — the cheapest way to follow the market: changing model is
@@ -24,10 +25,9 @@ function durationFor(model: string, seconds: number): number {
 export const falProvider: VideoGenProvider = {
   id: "fal",
   label: "fal.ai (Kling, Seedance y otros)",
-  keyLabel: "fal.ai API key",
-  keyPlaceholder: "xxxxxxxx-xxxx-…:…",
-  keyHelp:
-    "Créala en fal.ai → Dashboard → Keys. Con una sola key puedes usar varios modelos de video; fal cobra cada generación a tu cuenta.",
+  keySource: "fal",
+  strengths: "Varios modelos de video (Kling, Seedance) con una key. Kling da el movimiento más cuidado en personas y acción.",
+  realMotion: true,
   defaultModel: "fal-ai/kling-video/o3/standard/text-to-video",
   suggestedModels: [
     { id: "fal-ai/kling-video/o3/standard/text-to-video", label: "Kling O3 Standard (3–15 s)" },
@@ -48,10 +48,10 @@ export const falProvider: VideoGenProvider = {
       method: "POST",
       headers: { ...auth, "content-type": "application/json" },
       body: JSON.stringify({
-        prompt: req.prompt,
+        prompt: promptWithNarration(req),
         aspect_ratio: req.aspectRatio,
         duration: String(req.durationSeconds),
-        generate_audio: req.generateAudio,
+        generate_audio: true,
       }),
       signal,
       cache: "no-store",
@@ -75,10 +75,11 @@ export const falProvider: VideoGenProvider = {
     if (!output.video?.url) throw new VideoGenError("fal.ai terminó pero no devolvió un video.");
     return { data: await download(output.video.url, {}, signal), mimeType: output.video.content_type ?? "video/mp4" };
   },
+};
 
-  // fal has no "who am I" endpoint: asking for a request that doesn't exist
-  // answers 401/403 for a bad key and 404 for a good one.
-  async checkKey(apiKey): Promise<KeyCheck> {
+// fal has no "who am I" endpoint: asking for a request that doesn't exist
+// answers 401/403 for a bad key and 404 for a good one.
+export async function checkFalKey(apiKey: string): Promise<KeyCheck> {
     try {
       const res = await fetch(`${QUEUE}/fal-ai/kling-video/requests/00000000-0000-0000-0000-000000000000/status`, {
         headers: { Authorization: `Key ${apiKey}` },
@@ -93,5 +94,4 @@ export const falProvider: VideoGenProvider = {
     } catch {
       return { status: "unknown", message: "No pudimos contactar a fal.ai para verificar la key; la guardamos igual." };
     }
-  },
-};
+}

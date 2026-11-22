@@ -5,32 +5,37 @@ import { prisma } from "@/lib/prisma";
 import { requireBusinessAccess } from "@/lib/dal";
 import { audit } from "@/lib/audit";
 import { encryptSecret } from "@/lib/crypto";
-import { getVideoProvider } from "@/lib/videoGen";
+import { VIDEO_PROVIDERS, getVideoProvider } from "@/lib/videoGen";
+import { checkFalKey } from "@/lib/videoGen/providers/fal";
 import type { AiSettingsState } from "../actions";
 
-// AI video provider for generated scenes (lib/videoGen). Owner only, like
-// every key. The key is optional when switching only the model, and for
-// Gemini when the visual-review key already exists.
+// AI video settings (lib/videoGen), owner only like every key:
+// - preferred provider ("" = follow the per-scene recommendation),
+// - a model per provider (empty = recommended default),
+// - the fal.ai key, the only video key not saved elsewhere (Gemini and
+//   OpenAI reuse the keys above in Settings).
 export async function saveVideoAiSettings(
   businessId: string,
   _prev: AiSettingsState,
   formData: FormData
 ): Promise<AiSettingsState> {
-  const { user, business } = await requireBusinessAccess(businessId, "manage_settings");
-  const provider = getVideoProvider(String(formData.get("provider") ?? ""));
-  if (!provider) return { error: "Elige un proveedor de video." };
+  const { user } = await requireBusinessAccess(businessId, "manage_settings");
 
-  const key = String(formData.get("apiKey") ?? "").trim();
-  const model = String(formData.get("model") ?? "").trim().slice(0, 200) || null;
-  const sameProvider = business.videoAiProvider === provider.id;
-  const reusableGemini = provider.id === "gemini" && business.geminiApiKeyEncrypted != null;
-  const keepsKey = sameProvider && business.videoAiKeyEncrypted != null;
+  const preferredRaw = String(formData.get("preferred") ?? "");
+  const preferred = getVideoProvider(preferredRaw)?.id ?? null;
+  if (preferredRaw && !preferred) return { error: "Proveedor desconocido." };
 
-  if (!key && !keepsKey && !reusableGemini) return { error: `Pega tu ${provider.keyLabel}.` };
+  const models: Record<string, string> = {};
+  for (const p of VIDEO_PROVIDERS) {
+    const m = String(formData.get(`model_${p.id}`) ?? "").trim().slice(0, 200);
+    if (m) models[p.id] = m;
+  }
+
+  const falKey = String(formData.get("falKey") ?? "").trim();
   let warning: string | undefined;
-  if (key) {
-    if (key.length < 16) return { error: "Esa API key parece incompleta." };
-    const check = await provider.checkKey(key);
+  if (falKey) {
+    if (falKey.length < 16) return { error: "La key de fal.ai parece incompleta." };
+    const check = await checkFalKey(falKey);
     if (check.status === "invalid") return { error: check.message };
     warning = check.message;
   }
@@ -38,24 +43,19 @@ export async function saveVideoAiSettings(
   await prisma.business.update({
     where: { id: businessId },
     data: {
-      videoAiProvider: provider.id,
-      videoAiModel: model,
-      // A new key replaces the old one; switching provider without a key
-      // drops the other provider's key (it wouldn't work here).
-      ...(key ? { videoAiKeyEncrypted: encryptSecret(key) } : sameProvider ? {} : { videoAiKeyEncrypted: null }),
+      videoAiProvider: preferred,
+      videoAiModels: Object.keys(models).length > 0 ? JSON.stringify(models) : null,
+      ...(falKey ? { falApiKeyEncrypted: encryptSecret(falKey) } : {}),
     },
   });
-  await audit({ action: "video_ai.updated", actor: user, businessId, details: { provider: provider.id, model } });
+  await audit({ action: "video_ai.updated", actor: user, businessId, details: { preferred, models, falUpdated: Boolean(falKey) } });
   revalidatePath(`/business/${businessId}/settings`);
   return { success: true, warning };
 }
 
-export async function clearVideoAiSettings(businessId: string) {
+export async function clearFalKey(businessId: string) {
   const { user } = await requireBusinessAccess(businessId, "manage_settings");
-  await audit({ action: "video_ai.cleared", actor: user, businessId });
-  await prisma.business.update({
-    where: { id: businessId },
-    data: { videoAiProvider: null, videoAiKeyEncrypted: null, videoAiModel: null },
-  });
+  await audit({ action: "video_ai.cleared", actor: user, businessId, details: { provider: "fal" } });
+  await prisma.business.update({ where: { id: businessId }, data: { falApiKeyEncrypted: null } });
   revalidatePath(`/business/${businessId}/settings`);
 }

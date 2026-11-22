@@ -10,7 +10,7 @@ import { requireBusinessAccess } from "@/lib/dal";
 import { uploadBlockedReason } from "@/lib/usageServer";
 import { businessAi } from "@/lib/aiCredentials";
 import { toAiBusiness } from "@/lib/businessContext";
-import type { GeneratedCampaign } from "@/lib/ai";
+import { callProvider, resolveModel, type GeneratedCampaign } from "@/lib/ai";
 import {
   generateContentPiece,
   postMetricsSummary,
@@ -27,6 +27,7 @@ import { storageKey, saveUpload, deleteStored, fileSize } from "@/lib/storage";
 import { processSceneTake, isTakeStalled } from "@/lib/jobs/processTake";
 import { generateSceneTake } from "@/lib/jobs/generateTake";
 import { businessVideoAi } from "@/lib/videoGen/credentials";
+import { getVideoProvider } from "@/lib/videoGen";
 import { parseStrategy } from "@/lib/distribution";
 import { generatePlatformCopy, copyPlatformsFor } from "@/lib/platformCopy";
 import { assembleContentPiece, isAssemblyStalled } from "@/lib/jobs/assemblePiece";
@@ -264,6 +265,7 @@ export async function uploadSceneTake(
       status: "uploaded",
       source: "upload",
       aiPrompt: null,
+      aiNarration: null,
       aiModel: null,
       durationSeconds: null,
       hasAudio: null,
@@ -302,11 +304,12 @@ export async function generateTakeWithAi(
   }
   const content = JSON.parse(piece.content) as GeneratedContentPiece;
   if (!content.escenas.some((s) => s.numero === sceneNumber)) return { error: "Esa escena no existe." };
-  const videoAi = businessVideoAi(business);
-  if (!videoAi) return { error: "Configura un proveedor de video con IA en Negocio → Inteligencia artificial." };
+  const videoAi = businessVideoAi(business, String(formData.get("provider") ?? ""));
+  if (!videoAi) return { error: "Elige una IA para la que tengas key (Negocio → Inteligencia artificial)." };
 
   const prompt = String(formData.get("prompt") ?? "").trim().slice(0, 4000);
   if (prompt.length < 10) return { error: "Describe la escena que quieres generar." };
+  const narration = String(formData.get("narration") ?? "").trim().slice(0, 1000);
 
   const slot = "main";
   const uniqueTake = { contentPieceId_sceneNumber_slot: { contentPieceId: pieceId, sceneNumber, slot } };
@@ -324,6 +327,7 @@ export async function generateTakeWithAi(
     status: "generating",
     source: "ai",
     aiPrompt: prompt,
+    aiNarration: narration,
     aiModel: `${videoAi.provider.id}:${videoAi.model}`,
     durationSeconds: null,
     hasAudio: null,
@@ -344,6 +348,51 @@ export async function generateTakeWithAi(
   after(() => generateSceneTake(takeId));
   revalidatePath(piecePath(businessId, pieceId));
   return { ok: true };
+}
+
+// "Mejorar con IA": the business's text AI (Claude or GPT) rewrites a
+// scene's visual description the way video/image models read best — one
+// subject, a concrete action, a motivated camera, light and lens. Returns
+// the text for the owner to review; nothing is generated or saved here.
+export type ImprovePromptState = { visual?: string; error?: string; by?: string };
+
+export async function improveScenePrompt(
+  businessId: string,
+  pieceId: string,
+  sceneNumber: number,
+  _prev: ImprovePromptState,
+  formData: FormData
+): Promise<ImprovePromptState> {
+  const { business } = await requireBusinessAccess(businessId);
+  const ai = businessAi(business);
+  if (!ai) return { error: "Configura tu IA de texto (Claude u OpenAI) para mejorar la descripción." };
+  const piece = await prisma.contentPiece.findFirst({ where: { id: pieceId, businessId } });
+  if (!piece) return { error: "No encontramos este guion." };
+  const content = JSON.parse(piece.content) as GeneratedContentPiece;
+  const scene = content.escenas.find((s) => s.numero === sceneNumber);
+  if (!scene) return { error: "Esa escena no existe." };
+
+  const current = String(formData.get("prompt") ?? "").trim().slice(0, 4000);
+  const provider = getVideoProvider(String(formData.get("provider") ?? ""));
+  const stillOnly = provider ? !provider.realMotion : false;
+  const instruction = `You write prompts for AI ${stillOnly ? "image" : "video"} models for short vertical social videos of a local business.
+Rewrite the scene description below into one prompt in English, max 110 words, as plain text (no lists, no quotes, no preamble).
+Rules: one clear subject; ${stillOnly ? "a single photographable moment that a slow camera push-in can bring alive (no action that needs motion)" : "one concrete physical action with a beginning and an end that fits the clip"}; a motivated camera (angle, lens, movement); light and color; texture details that make it look real and local to ${business.location}.
+Keep: vertical 9:16 framing, no on-screen text, letters, logos or watermarks, no recognizable real people or brands. Do not include dialogue.
+
+Business: ${business.name}, ${business.industry}. Brand tone: ${business.brandTone ?? "not specified"}. Brand colors: ${business.brandColors ?? "not specified"}.
+Script scene — what we see: ${scene.queMostrar}. How it was meant to be filmed: ${scene.comoGrabar}.
+Current description:
+${current || "(empty)"}`;
+
+  try {
+    const model = resolveModel(ai.provider, ai.model);
+    const text = (await callProvider(ai.provider, ai.apiKey, model, instruction, 600)).trim();
+    if (text.length < 20) return { error: "La IA no devolvió una descripción. Intenta de nuevo." };
+    return { visual: text.replace(/^["“]|["”]$/g, "").slice(0, 4000), by: ai.provider === "anthropic" ? "Claude" : "OpenAI" };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message.slice(0, 300) : "No se pudo mejorar la descripción." };
+  }
 }
 
 export async function retryTake(businessId: string, pieceId: string, takeId: string) {

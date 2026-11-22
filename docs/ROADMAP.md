@@ -113,6 +113,7 @@ Pedido del fundador: quitar funciones repetidas entre módulos, UI/UX más simpl
 - Quitado lo repetido: un solo `Notice` para avisos (había copias locales), un solo `AiRequired` para "configura tu IA" (4 variantes), un helper para el redirect por falta de IA (4 copias); Configuración ahora muestra el motivo del redirect (antes se perdía). *Creativos* ya no repite la lista de guiones: muestra solo videos listos para multiplicar.
 - **Video con IA por escena** con proveedores intercambiables (Gemini Omni Flash, fal.ai con Kling/Seedance), modelo editable por negocio o por variable de entorno. Ver [`AI_VIDEO.md`](AI_VIDEO.md).
 - Skills de Claude Code para video (fal.ai y Remotion) en `.claude/skills/`.
+- **2026-11-22:** elegir la IA en cada escena con la recomendada preseleccionada y su motivo; proveedor **OpenAI imagen + movimiento + voz** (funciona con solo Claude + OpenAI); “Mejorar con Claude” para la descripción; combinación recomendada y guía por red en Configuración.
 
 ## Después del MVP
 - TikTok / YouTube directos (tras auditoría/cuotas).

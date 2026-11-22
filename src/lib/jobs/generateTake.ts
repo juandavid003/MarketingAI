@@ -7,6 +7,7 @@ import { businessVideoAi } from "@/lib/videoGen/credentials";
 import { VideoGenError } from "@/lib/videoGen";
 import { wholeScriptScene, FULL_TAKE_SLOT, type GeneratedContentPiece } from "@/lib/contentAi";
 import { processSceneTake } from "@/lib/jobs/processTake";
+import { languageLabel } from "@/lib/businessContext";
 
 // Background job (after()) for a scene the owner asked the AI to generate
 // instead of recording: prompt → provider → mp4 saved as the take's
@@ -26,8 +27,11 @@ export async function generateSceneTake(takeId: string): Promise<void> {
     const piece = take.contentPiece;
     const business = piece.business;
 
-    const ai = businessVideoAi(business);
-    if (!ai) throw new VideoGenError("Configura un proveedor de video con IA en Negocio → Inteligencia artificial.");
+    // aiModel was set at request time to "<provider>:<model>" — the provider
+    // the owner picked for this scene.
+    const providerId = take.aiModel?.split(":")[0] ?? "";
+    const ai = businessVideoAi(business, providerId);
+    if (!ai) throw new VideoGenError("Ya no hay una key para el proveedor elegido. Revisa Negocio → Inteligencia artificial.");
 
     const content = JSON.parse(piece.content) as GeneratedContentPiece;
     const scene =
@@ -36,10 +40,11 @@ export async function generateSceneTake(takeId: string): Promise<void> {
 
     const result = await ai.provider.generate(
       {
-        prompt: take.aiPrompt,
+        visual: take.aiPrompt,
+        narration: take.aiNarration ?? "",
+        language: languageLabel(business.contentLanguage),
         aspectRatio: "9:16",
         durationSeconds: ai.provider.clampDuration(scene.duracionSegundos, ai.model),
-        generateAudio: true,
       },
       { apiKey: ai.apiKey, model: ai.model, signal: AbortSignal.timeout(GENERATION_TIMEOUT_MS) }
     );
