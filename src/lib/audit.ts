@@ -32,7 +32,8 @@ export type AuditAction =
   | "member.invited"
   | "member.accepted"
   | "member.removed"
-  | "storage.originals_cleaned";
+  | "storage.originals_cleaned"
+  | "video.ai_edit";
 
 const SECRET_KEY = /key|token|secret|password|authorization/i;
 
@@ -101,4 +102,5 @@ export const AUDIT_LABEL: Record<string, string> = {
   "member.accepted": "Aceptó la invitación",
   "member.removed": "Quitó a un encargado",
   "storage.originals_cleaned": "Limpieza de videos originales",
+  "video.ai_edit": "Editó un video con IA",
 };

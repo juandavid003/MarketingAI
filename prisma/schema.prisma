@@ -374,6 +374,29 @@ model VideoAsset {
   originalDeletedAt DateTime?
 
   versions VideoVersion[]
+  aiEdits  VideoEdit[]
+}
+
+// An "edit with AI" request on an uploaded video: the chosen AI (Claude,
+// OpenAI, Gemini) plans the cuts, on-screen hook/CTA and the post text for
+// one network; lib/jobs/aiVideoEdit.ts renders it into a new VideoVersion.
+model VideoEdit {
+  id             String     @id @default(cuid())
+  videoAsset     VideoAsset @relation(fields: [videoAssetId], references: [id], onDelete: Cascade)
+  videoAssetId   String
+  provider       String // anthropic | openai | gemini
+  model          String
+  platform       String // instagram | tiktok | youtube | facebook
+  instructions   String?
+  removeSilences Boolean    @default(true)
+  status         String     @default("planning") // planning | rendering | ready | error
+  errorMessage   String?
+  plan           String? // JSON EditPlan (lib/aiVideoEdit.ts)
+  videoVersionId String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @default(now()) @updatedAt
+
+  @@index([videoAssetId])
 }
 
 model VideoVersion {

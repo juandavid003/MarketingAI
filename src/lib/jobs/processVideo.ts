@@ -101,7 +101,10 @@ export async function processVideoAsset(videoAssetId: string): Promise<void> {
 
     await prisma.$transaction([
       // A retry after a crash between these two writes must not duplicate.
-      prisma.videoVersion.deleteMany({ where: { videoAssetId: asset.id, publishedVideos: { none: {} } } }),
+      // Only the automatic version: "Editar con IA" versions stay.
+      prisma.videoVersion.deleteMany({
+        where: { videoAssetId: asset.id, label: "Versión 1", publishedVideos: { none: {} } },
+      }),
       prisma.videoVersion.create({
         data: {
           videoAssetId: asset.id,

@@ -30,3 +30,22 @@ export function transcriptionKey(business: {
   if (business.aiProvider === "openai" && business.aiApiKeyEncrypted) return decryptSecret(business.aiApiKeyEncrypted);
   return null;
 }
+
+// Keys usable for "Editar con IA" (lib/aiVideoEdit.ts), per provider: Claude
+// needs the business's text key to be Anthropic's; any saved OpenAI key works
+// for OpenAI; Gemini uses the visual-review key.
+export function videoEditKeys(business: {
+  aiProvider: string | null;
+  aiApiKeyEncrypted: string | null;
+  openaiTranscriptionKeyEncrypted: string | null;
+  openaiImageKeyEncrypted: string | null;
+  geminiApiKeyEncrypted: string | null;
+}): Record<"anthropic" | "openai" | "gemini", string | null> {
+  const enc = (v: string | null) => (v ? decryptSecret(v) : null);
+  return {
+    anthropic: business.aiProvider === "anthropic" ? enc(business.aiApiKeyEncrypted) : null,
+    openai:
+      transcriptionKey(business) ?? enc(business.openaiImageKeyEncrypted),
+    gemini: enc(business.geminiApiKeyEncrypted),
+  };
+}

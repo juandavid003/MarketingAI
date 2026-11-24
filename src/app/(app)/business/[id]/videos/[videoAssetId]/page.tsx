@@ -1,9 +1,13 @@
 import { notFound } from "next/navigation";
-import { CheckCircle2, ExternalLink, Download, Package, Send } from "lucide-react";
+import { CheckCircle2, ExternalLink, Download, Package, Send, Wand2, Loader2 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireBusinessAccess } from "@/lib/dal";
 import type { Transcript } from "@/lib/whisper";
-import { retryVideoProcessing } from "../../video-actions";
+import { retryVideoProcessing, discardAiVideoEdit } from "../../video-actions";
+import { isEditStalled } from "@/lib/jobs/aiVideoEdit";
+import { EDIT_PLATFORMS, EDIT_PROVIDERS, type EditPlan } from "@/lib/aiVideoEdit";
+import { videoEditKeys } from "@/lib/aiCredentials";
+import { AiEditForm } from "./AiEditForm";
 import { fileUrl } from "@/lib/storage";
 import { isStalled } from "@/lib/jobs/processVideo";
 import { AutoRefresh } from "@/components/AutoRefresh";
@@ -48,6 +52,7 @@ export default async function VideoAssetPage({
           orderBy: { createdAt: "asc" },
           include: { publishedVideos: { orderBy: { createdAt: "desc" } } },
         },
+        aiEdits: { orderBy: { createdAt: "desc" } },
       },
     }),
     prisma.business.findUnique({
@@ -72,7 +77,35 @@ export default async function VideoAssetPage({
   }
 
   const stalled = isStalled(video);
-  const inProgress = !["ready", "error"].includes(video.status) && !stalled;
+  const editing = video.aiEdits.filter((e) => (e.status === "planning" || e.status === "rendering") && !isEditStalled(e));
+  const failedEdits = video.aiEdits.filter((e) => e.status === "error" || isEditStalled(e));
+  const inProgress = (!["ready", "error"].includes(video.status) && !stalled) || editing.length > 0;
+
+  // Why the AI chose each edit, shown on the version it produced.
+  const editByVersion = new Map(
+    video.aiEdits.filter((e) => e.videoVersionId).map((e) => [e.videoVersionId!, e])
+  );
+  const planOf = (raw: string | null): EditPlan | null => {
+    try {
+      return raw ? (JSON.parse(raw) as EditPlan) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const keys = videoEditKeys(business);
+  const editAis = (Object.keys(EDIT_PROVIDERS) as (keyof typeof EDIT_PROVIDERS)[]).map((pid) => ({
+    id: pid,
+    label: EDIT_PROVIDERS[pid].label,
+    strengths: EDIT_PROVIDERS[pid].strengths,
+    available: !!keys[pid],
+  }));
+  const editPlatforms = Object.entries(EDIT_PLATFORMS).map(([pid, p]) => ({
+    id: pid,
+    label: p.label,
+    range: `${p.minSeconds}-${p.maxSeconds} s`,
+  }));
+  const defaultPlatform = business.mainPlatforms.find((p) => p in EDIT_PLATFORMS) ?? "instagram";
   const canRetry = video.status === "error" || stalled;
 
   return (
@@ -145,6 +178,50 @@ export default async function VideoAssetPage({
         </div>
       )}
 
+      {video.status === "ready" && (
+        <Card className="mt-6">
+          <p className="mb-3 flex items-center gap-1.5 text-sm font-medium">
+            <Wand2 className="size-4 text-brand" /> Editar con IA para redes
+          </p>
+          {video.originalDeletedAt ? (
+            <p className="text-sm text-muted">
+              El original ya se borró, así que no se puede volver a editar. Sube el video otra vez para crear nuevas
+              versiones.
+            </p>
+          ) : (
+            <AiEditForm
+              businessId={id}
+              videoAssetId={video.id}
+              ais={editAis}
+              platforms={editPlatforms}
+              defaultPlatform={defaultPlatform}
+              busy={editing.length > 0}
+            />
+          )}
+          {editing.map((e) => (
+            <p key={e.id} className="mt-3 flex items-center gap-1.5 text-sm text-muted">
+              <Loader2 className="size-4 animate-spin" />
+              {EDIT_PROVIDERS[e.provider as keyof typeof EDIT_PROVIDERS]?.label ?? e.provider} está{" "}
+              {e.status === "planning" ? "eligiendo los mejores momentos" : "renderizando el video"} para{" "}
+              {EDIT_PLATFORMS[e.platform]?.label ?? e.platform}...
+            </p>
+          ))}
+          {failedEdits.map((e) => (
+            <div key={e.id} className="mt-3 flex flex-wrap items-center gap-2">
+              <Notice tone="danger">
+                Falló la edición con {EDIT_PROVIDERS[e.provider as keyof typeof EDIT_PROVIDERS]?.label ?? e.provider}:{" "}
+                {e.errorMessage ?? "se interrumpió (probablemente por un reinicio del servidor)."}
+              </Notice>
+              <form action={discardAiVideoEdit.bind(null, id, video.id, e.id)}>
+                <Button type="submit" size="sm" variant="secondary">
+                  Descartar
+                </Button>
+              </form>
+            </div>
+          ))}
+        </Card>
+      )}
+
       {video.versions.map((version) => (
         <Card key={version.id} className="mt-6">
           <p className="text-sm font-medium">{version.label}</p>
@@ -171,6 +248,18 @@ export default async function VideoAssetPage({
                   <span className="font-medium">CTA: </span>
                   {version.cta}
                 </p>
+              )}
+              {planOf(editByVersion.get(version.id)?.plan ?? null)?.reason && (
+                <p className="text-xs text-muted">
+                  <span className="font-medium">Por qué: </span>
+                  {planOf(editByVersion.get(version.id)?.plan ?? null)?.reason}
+                </p>
+              )}
+              {version.caption && (
+                <details className="text-sm">
+                  <summary className="cursor-pointer text-brand">Texto de la publicación</summary>
+                  <p className="mt-1 whitespace-pre-line text-muted">{version.caption}</p>
+                </details>
               )}
               <a
                 href={`${fileUrl(version.outputPath)}${version.outputPath.startsWith("/") ? "" : "?download=1"}`}
